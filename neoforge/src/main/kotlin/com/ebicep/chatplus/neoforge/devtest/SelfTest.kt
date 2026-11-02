@@ -8,6 +8,7 @@ import com.ebicep.chatplus.features.SelectChat
 import com.ebicep.chatplus.features.TranslateMessage
 import com.ebicep.chatplus.features.chattabs.ChatTab
 import com.ebicep.chatplus.features.moderation.ModTools
+import com.ebicep.chatplus.features.moderation.ui.NameMenu
 import com.ebicep.chatplus.hud.ChatManager
 import com.ebicep.chatplus.translator.LanguageManager
 import net.minecraft.client.Minecraft
@@ -149,7 +150,7 @@ object SelfTest {
         }
     }
 
-    /** Where the name menu draws its rows, mirroring NameMenuScreen's layout for a menu opened on the left of the screen. */
+    /** Where the name menu draws its rows, mirroring NameMenu's layout for a menu opened on the left of the screen. */
     private fun menuRowY(screen: Screen, index: Int, entryCount: Int): Double {
         val boxH = 4 + 11 + 3 + entryCount * 12 + 2
         val boxY = maxOf(6.0, minOf(nameY - 4, (screen.height - boxH - 6).toDouble()))
@@ -219,7 +220,8 @@ object SelfTest {
         step(3) {
             check("name located in rendered chat", locateName(mc.screen!!))
             openMenuOnName(mc)
-            check("right-click on a name opens the menu", screenName() == "NameMenuScreen", screenName())
+            check("right-click on a name opens the menu", NameMenu.isOpen(), screenName())
+            check("chat stays open behind the menu, at full height", mc.screen is ChatScreen, screenName())
         }
         step(10) {
             shot("name-menu")
@@ -259,9 +261,16 @@ object SelfTest {
         step(5) {
             openMenuOnName(mc)
         }
+        step(3) {
+            mc.screen!!.keyPressed(256, 0, 0)
+            check("Escape closes only the menu, chat stays open", !NameMenu.isOpen() && mc.screen is ChatScreen, screenName())
+        }
+        step(5) {
+            openMenuOnName(mc)
+        }
         step(5) {
             val screen = mc.screen!!
-            check("menu opens again", screenName() == "NameMenuScreen", screenName())
+            check("menu opens again", NameMenu.isOpen() && mc.screen is ChatScreen, screenName())
             click(screen, nameX + 10, menuRowY(screen, 0, menuEntries), 0)
             check("Record opens the lookup popup", screenName() == "LookupScreen", screenName())
         }
