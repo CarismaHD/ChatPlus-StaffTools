@@ -464,7 +464,7 @@
   "chatPlus.copyMessage.copyWholeMessage.toggle": "Copy Whole Message",
   "chatPlus.copyMessage.copyWholeMessage.toggle.tooltip": "Enables/Disables whether or not copying a line copies the whole message associated with it.",
   "chatPlus.copyMessage.noFormatting.toggle": "Copy Unformatted",
-  "chatPlus.copyMessage.noFormatting.toggle.tooltip": "Default copy mode, relevant for older servers that use formatting codes. Using shift while copying will copy using the other mode (formatted/unformatted).",
+  "chatPlus.copyMessage.noFormatting.toggle.tooltip": "Enables/Disables copying the formatting (ChatPlus style). Using shift while copying will copy using the other mode (formatted/unformatted). Useful for creating formatted patterns as they use the same ChatPlus style syntax.\n# = COLOR\n&l = BOLD\n&o = ITALIC\n&n = UNDERLINE\n&m = STRIKETHROUGH\n&k = OBFUSCATED",
   "chatPlus.copyMessage.key": "Copy Message Shortcut",
   "chatPlus.copyMessage.key.tooltip": "Copies currently selected messages or message hovered over.",
   "chatPlus.copyMessage.formattingSymbolOverride": "Formatting Symbol Override",

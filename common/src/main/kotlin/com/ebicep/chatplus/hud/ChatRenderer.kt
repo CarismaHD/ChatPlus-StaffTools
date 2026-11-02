@@ -258,7 +258,11 @@ class ChatRenderer {
         val updatedBackgroundColor = chatWindow.generalSettings.getUpdatedBackgroundColor()
         while (displayMessageIndex + chatWindow.tabSettings.selectedTab.chatScrollbarPos < messagesToDisplay && displayMessageIndex < linesPerPage) {
             val messageIndex = messagesToDisplay - displayMessageIndex - chatWindow.tabSettings.selectedTab.chatScrollbarPos
-            val chatPlusGuiMessageLine: ChatTab.ChatPlusGuiMessageLine = chatWindow.tabSettings.selectedTab.displayedMessages[messageIndex - 1]
+            val chatPlusGuiMessageLine = chatWindow.tabSettings.selectedTab.displayedMessages.getOrNull(messageIndex - 1)
+            if (chatPlusGuiMessageLine == null) {
+                ++displayMessageIndex
+                continue
+            }
             val line: GuiMessage.Line = chatPlusGuiMessageLine.line
             val ticksLived: Int = guiTicks - line.addedTime()
             if (ticksLived >= 200 && !chatFocused) {

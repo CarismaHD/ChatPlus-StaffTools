@@ -25,6 +25,10 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 - Translate: an API error pauses translation for 5 minutes instead of for the rest of the session.
 - Translate: requests time out instead of hanging, and auto-translate is skipped when no translate regex is set.
 - Settings screen: uses upstream's later fix for opening the settings from the NeoForge 21.1 mod list (from ChatPlus commit `0740a1d`).
+- Three later ChatPlus bug fixes, taken unchanged from ChatPlus 2.8.0:
+  - A memory leak in the chat bar's elements, which grew the longer you played (`fa227b3`).
+  - A crash guard when a chat line is missing while drawing chat (`4186d57`).
+  - Copying a message with its formatting works again (`63c3636`).
 
 **Build**
 - NeoForge only. The Fabric build is turned off.
