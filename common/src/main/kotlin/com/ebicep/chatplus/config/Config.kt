@@ -273,6 +273,10 @@ data class ConfigVariables(
     var speechToTextAutoReplacePlayers: Boolean = true,
     var speechToTextAutoReplacePlayersMaxSearchDepth: Int = 3,
     var speechToTextReplace: MutableList<SpeechToTextReplace> = mutableListOf(),
+    // moderation (Staff Tools). The server-specific part is in config/chatplus/moderation/profile.json.
+    var moderationEnabled: Boolean = true,
+    var moderationCommandDelayMs: Int = 1500,
+    var moderationLookupWaitMs: Int = 1500,
 ) {
 
     var chatWindows: MutableList<ChatWindow> = mutableListOf()

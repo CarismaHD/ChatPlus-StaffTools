@@ -198,7 +198,7 @@ object TranslateMessage {
                     it.returnFunction = true
                     ClickTranslator(
                         messages,
-                        messages.joinToString("§") { ChatFormatting.stripFormatting(it.guiMessage.content.string)!! },
+                        messages.joinToString(TranslationSplit.SEPARATOR) { ChatFormatting.stripFormatting(it.guiMessage.content.string)!! },
                         to
                     ).start()
                 }
@@ -215,6 +215,11 @@ object TranslateMessage {
         if (!values.translatorEnabled) {
             return
         }
+        // Automatic translation only applies to lines matching a translator regex. With none set, skip the thread
+        // that every incoming message used to start just to find that out.
+        if (values.translatorRegexes.none { it.pattern.isNotEmpty() }) {
+            return
+        }
         LanguageManager.languageTo?.let {
             Translator(ChatFormatting.stripFormatting(component.string)!!, null, it).start()
         }
@@ -224,40 +229,61 @@ object TranslateMessage {
         Translator(message, null, to, false) {
 
         override fun onTranslateSameMessage() {
-            val component = Component.literal("")
-            line.forEachIndexed { index, it ->
-                component.append(it.guiMessage.content)
-                if (index != line.size - 1) {
-                    component.append(Component.literal("\n"))
+            // Runs on the translation thread. Chat may only be changed from the client thread.
+            Minecraft.getInstance().execute {
+                val component = Component.literal("")
+                line.forEachIndexed { index, it ->
+                    component.append(it.guiMessage.content)
+                    if (index != line.size - 1) {
+                        component.append(Component.literal("\n"))
+                    }
                 }
-            }
-            ChatPlus.sendMessage(
-                ComponentUtil.translatable(
-                    "chatPlus.translator.sameMessage",
-                    ChatFormatting.RED,
-                    HoverEvent(HoverEvent.Action.SHOW_TEXT, component)
+                ChatPlus.sendMessage(
+                    ComponentUtil.translatable(
+                        "chatPlus.translator.sameMessage",
+                        ChatFormatting.RED,
+                        HoverEvent(HoverEvent.Action.SHOW_TEXT, component)
+                    )
                 )
-            )
+            }
         }
 
         override fun onTranslate(matchedRegex: String?, translatedMessage: TranslateResult, fromLanguage: String?) {
-            translatedMessage.translatedText.split("§").forEachIndexed { index, it ->
-                val component = ComponentUtil.literal(
-                    (matchedRegex ?: "") + it.trim() + " (" + (fromLanguage ?: "Unknown") + ")",
-                    ChatFormatting.GREEN,
-                    HoverEvent(HoverEvent.Action.SHOW_TEXT, line[index].guiMessage.content.copy())
-                )
-                ChatManager.globalSelectedTab.addNewMessage(
-                    AddNewMessageEvent(
-                        component.copy(),
-                        component,
-                        null,
-                        null,
-                        Minecraft.getInstance().gui.guiTicks,
-                        GuiMessageTag.system(),
-                        false
+            val suffix = " (" + (fromLanguage ?: "Unknown") + ")"
+            val pieces = TranslationSplit.split(translatedMessage.translatedText, line.size)
+            // When the pieces no longer line up with the selected lines, show the whole translation as one message,
+            // with every original line in the hover, rather than pairing text with the wrong line.
+            val messages: List<Pair<String, Component>> = if (pieces != null) {
+                pieces.mapIndexed { index, piece -> piece to line[index].guiMessage.content.copy() }
+            } else {
+                val all = Component.literal("")
+                line.forEachIndexed { index, it ->
+                    all.append(it.guiMessage.content)
+                    if (index != line.size - 1) {
+                        all.append(Component.literal("\n"))
+                    }
+                }
+                listOf(translatedMessage.translatedText.replace(TranslationSplit.SEPARATOR, " ").trim() to all)
+            }
+            Minecraft.getInstance().execute {
+                messages.forEach { (text, original) ->
+                    val component = ComponentUtil.literal(
+                        (matchedRegex ?: "") + text + suffix,
+                        ChatFormatting.GREEN,
+                        HoverEvent(HoverEvent.Action.SHOW_TEXT, original)
                     )
-                )
+                    ChatManager.globalSelectedTab.addNewMessage(
+                        AddNewMessageEvent(
+                            component.copy(),
+                            component,
+                            null,
+                            null,
+                            Minecraft.getInstance().gui.guiTicks,
+                            GuiMessageTag.system(),
+                            false
+                        )
+                    )
+                }
             }
         }
 

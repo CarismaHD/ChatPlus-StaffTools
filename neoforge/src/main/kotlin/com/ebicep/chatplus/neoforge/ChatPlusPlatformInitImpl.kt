@@ -1,9 +1,9 @@
 package com.ebicep.chatplus.neoforge
 
 import com.ebicep.chatplus.ChatPlus
-import com.ebicep.chatplus.config.ConfigScreen
-import net.minecraft.client.Minecraft
+import com.ebicep.chatplus.config.neoforge.ConfigScreenImpl
 import net.minecraft.client.gui.screens.Screen
+import net.neoforged.fml.ModContainer
 import net.neoforged.fml.ModLoadingContext
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory
 
@@ -14,8 +14,8 @@ object ChatPlusPlatformInitImpl {
     fun platformInit() {
         ChatPlus.init()
         ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory::class.java) {
-            IConfigScreenFactory { _: Minecraft, screen: Screen ->
-                ConfigScreen.getConfigScreen(screen)
+            IConfigScreenFactory { _: ModContainer, screen: Screen ->
+                ConfigScreenImpl.getConfigScreen(screen)
             }
         }
     }

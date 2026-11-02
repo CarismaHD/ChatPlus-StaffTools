@@ -1,0 +1,37 @@
+{
+  "servers": ["example.net"],
+  "stripPrefixes": ["^[^\\p{L}\\p{N}\\s]+\\s+(?=-- Record)"],
+  "chat": {
+    "nameFromClick": ["^/whisper (?<name>[A-Za-z0-9_]{3,16})(?:\\s.*)?$"],
+    "chatLines": ["^\\w+ \\| .+? » .*", "^\\(Staff\\) .*"]
+  },
+  "lookup": {
+    "start": ["^-- Record: (?<name>\\S+) --$"],
+    "count": ["^(?<kind>Strikes|Remarks|Bans active) = (?<count>\\d+)$"],
+    "entry": ["^\\s*(?<id>\\d+)\\) (?:<(?<status>\\w+)> )?(?<time>\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d) by (?<staff>\\S+) :: (?<text>.*)$"],
+    "section": ["^(?<header>[A-Z][\\w ]*)>$"],
+    "warningsCount": "Strikes",
+    "notesCount": "Remarks",
+    "bansCount": "Bans active",
+    "warningsSection": "Strikes",
+    "notesSection": "Remarks"
+  },
+  "silentFlag": "--quiet",
+  "commands": [
+    { "id": "lookup", "label": "Record", "template": "/guard record {player}", "confirm": false, "parser": "lookup" },
+    { "id": "msg", "label": "Tell", "template": "/guard tell {player} {message}", "confirm": true },
+    { "id": "note_add", "label": "Remark", "template": "/guard remark {player} {message}", "confirm": true },
+    { "id": "warn_add", "label": "Strike", "template": "/guard strike {player} {reason}", "confirm": true },
+    { "id": "warn_remove", "label": "Remove strike", "template": "/guard unstrike {player} {warningId}", "confirm": true },
+    { "id": "note_remove", "label": "Remove remark", "template": "/guard unremark {player} {noteId}", "confirm": true },
+    { "id": "tempban", "label": "Timeout", "template": "/guard timeout {player} {duration} {silent} {reason}", "confirm": true },
+    { "id": "unban", "label": "Lift", "template": "/guard lift {player}", "confirm": true },
+    { "id": "unstuck", "label": "Rescue", "template": "/guard rescue {player}", "confirm": true },
+    { "id": "where", "label": "Where?", "template": "/guard where {player}", "confirm": false, "menu": true },
+    { "id": "inventory", "label": "Inventory", "template": "/peek {player}", "confirm": true, "menu": true }
+  ],
+  "tabs": [
+    { "name": "Tickets", "pattern": "^(?:Open tickets.*|T\\d+ @\\S+ .*|Nothing open\\.)$" },
+    { "name": "Watch", "pattern": "^\\{Watch\\} .*" }
+  ]
+}

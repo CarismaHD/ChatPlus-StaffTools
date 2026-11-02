@@ -15,7 +15,26 @@ class GoogleRequester {
 
     companion object {
         const val BASE_URL = "https://translate.googleapis.com/translate_a/single"
+        private const val READ_TIMEOUT_MS = 10_000
+        private const val USER_AGENT = "Mozilla/5.0 (ChatPlus)"
+
+        @Volatile
         var accessDenied = false
+
+        /**
+         * Reads Google's response. Each sentence piece already carries its own trailing space, so pieces are joined
+         * as they are. Joining them with a space doubled the gap between sentences.
+         */
+        fun parseResponse(entity: String, targetLanguage: Language): RequestResult {
+            val gson: Gson = GsonBuilder().setLenient().create()
+            val json: JsonArray = gson.fromJson(entity, JsonArray::class.java)
+            val detectedCode = json.get(2).takeIf { it.isJsonPrimitive }?.asString
+            val detectedSource = detectedCode?.let { LanguageManager.findLanguageFromGoogle(it) }
+            val translatedText = json[0].asJsonArray
+                .filter { it.isJsonArray && it.asJsonArray.size() > 0 && it.asJsonArray[0].isJsonPrimitive }
+                .joinToString("") { it.asJsonArray[0].asString }
+            return RequestResult(200, translatedText, detectedSource, targetLanguage)
+        }
     }
 
     fun translateAuto(message: String, to: Language?): RequestResult {
@@ -56,26 +75,33 @@ class GoogleRequester {
     }
 
     private fun processSuccessfulResponse(response: Response, targetLanguage: Language): RequestResult {
-        val gson: Gson = GsonBuilder().setLenient().create()
-        val json: JsonArray = gson.fromJson(response.entity, JsonArray::class.java)
-
-        val detectedSource = LanguageManager.findLanguageFromGoogle(json[2].asString)
-        val translatedText = json[0].asJsonArray
-            .joinToString(" ") { it.asJsonArray[0].asString }
-
-        return RequestResult(200, translatedText, detectedSource, targetLanguage)
+        return try {
+            parseResponse(response.entity, targetLanguage)
+        } catch (e: Exception) {
+            ChatPlus.LOGGER.error("Unexpected translation response", e)
+            RequestResult(500, "Unexpected response from Google", null, null)
+        }
     }
 
     private fun handleAccessDenied(): RequestResult {
-        accessDenied = true
-        Timeout().start()
+        pause()
         return RequestResult(429, "Access to Google Translate denied", null, null)
     }
 
+    /** Any other error pauses translation too, but only for a while. Before, it stopped translation until a restart. */
     private fun handleApiError(response: Response): RequestResult {
-        accessDenied = true
+        pause()
         ChatPlus.LOGGER.error(response.entity)
         return RequestResult(411, "API call error", null, null)
+    }
+
+    private fun pause() {
+        synchronized(GoogleRequester::class.java) {
+            if (!accessDenied) {
+                accessDenied = true
+                Timeout().start()
+            }
+        }
     }
 
     private fun sendRequest(method: String, queryParams: Map<String, String>, contentType: String): Response? {
@@ -106,9 +132,11 @@ class GoogleRequester {
     private fun createConnection(requestUrl: String, method: String, contentType: String): HttpsURLConnection {
         return (URL(requestUrl).openConnection() as HttpsURLConnection).apply {
             setRequestProperty("Content-Type", contentType)
-            doOutput = true
+            setRequestProperty("User-Agent", USER_AGENT)
             requestMethod = method
             connectTimeout = 5000
+            // Without this a stalled request held its thread forever.
+            readTimeout = READ_TIMEOUT_MS
             connect()
         }
     }
@@ -127,7 +155,11 @@ data class RequestResult(val code: Int, val message: String, val from: Language?
 
 data class Response(val responseCode: Int, val entity: String)
 
-class Timeout : Thread() {
+class Timeout : Thread("ChatPlus-TranslatePause") {
+    init {
+        isDaemon = true
+    }
+
     override fun run() {
         try {
             sleep(300000)

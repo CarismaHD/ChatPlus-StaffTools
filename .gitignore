@@ -17,3 +17,11 @@ classes/
 .vscode
 .settings
 *.launch
+neoforge/run-selftest/
+
+common/logs/
+
+# Private files that must never be committed: real server profiles, samples, denylists, personal configs
+private/
+*.private.json
+*.private.txt

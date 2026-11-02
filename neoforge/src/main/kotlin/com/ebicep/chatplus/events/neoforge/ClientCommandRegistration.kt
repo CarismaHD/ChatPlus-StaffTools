@@ -4,8 +4,10 @@ import com.ebicep.chatplus.ChatPlus
 import com.ebicep.chatplus.config.Config
 import com.ebicep.chatplus.config.ConfigScreen
 import com.ebicep.chatplus.features.internal.Debug
+import com.ebicep.chatplus.features.moderation.ModTools
 import com.ebicep.chatplus.hud.ChatManager
 import com.mojang.brigadier.Command
+import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import net.minecraft.ChatFormatting
 import net.minecraft.commands.CommandSourceStack
@@ -24,7 +26,31 @@ object ClientCommandRegistration {
     fun registerCommands(event: RegisterClientCommandsEvent) {
         event.dispatcher.register(createCommand("chatplus"))
         event.dispatcher.register(createCommand("cp"))
+        event.dispatcher.register(createModToolsCommand("modtools"))
+        event.dispatcher.register(createModToolsCommand("mt"))
     }
+
+    /** /mt <player> looks a player up, /mt reload reloads the server profile, /mt alone shows the status. */
+    private fun createModToolsCommand(commandName: String): LiteralArgumentBuilder<CommandSourceStack> =
+        Commands.literal(commandName)
+            .then(
+                Commands.literal("reload")
+                    .executes {
+                        ChatPlus.sendMessage(Component.literal(ModTools.reload()))
+                        Command.SINGLE_SUCCESS
+                    }
+            )
+            .then(
+                Commands.argument("player", StringArgumentType.word())
+                    .executes {
+                        ModTools.openLookup(StringArgumentType.getString(it, "player"))
+                        Command.SINGLE_SUCCESS
+                    }
+            )
+            .executes {
+                ChatPlus.sendMessage(Component.literal(ModTools.status() + " Right-click a player's name in chat, or use /$commandName <player>."))
+                Command.SINGLE_SUCCESS
+            }
 
     private fun createCommand(commandName: String): LiteralArgumentBuilder<CommandSourceStack>? =
         Commands.literal(commandName)

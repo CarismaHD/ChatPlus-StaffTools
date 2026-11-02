@@ -11,6 +11,17 @@ architectury {
 
 loom {
     accessWidenerPath.set(project(":common").loom.accessWidenerPath)
+    runs {
+        // Offline self-test: makes a throwaway singleplayer world, drives the moderation tools and translate, saves
+        // screenshots and results, then quits. It never connects to a server. Run with gradlew :neoforge:runSelfTest.
+        create("selfTest") {
+            client()
+            name("Self Test")
+            runDir("run-selftest")
+            vmArg("-Dchatplus.stafftools.selftest=true")
+            programArgs("--width", "1920", "--height", "1080")
+        }
+    }
 }
 
 val common: Configuration by configurations.creating
@@ -44,7 +55,15 @@ dependencies {
     shadowCommon(project(":common", "transformProductionNeoForge")) { isTransitive = false }
 
     // Kotlin For Forge
-    implementation("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_forge_version")}")
+    // Compiled against the oldest supported Kotlin for Forge, so the mod keeps working on any version from there up.
+    compileOnly("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_forge_version")}") {
+        exclude(group = "net.neoforged.fancymodloader")
+    }
+    // The dev client runs a current version. The old one calls loader classes that NeoForge 21.1 removed.
+    runtimeOnly("thedarkcolour:kotlinforforge-neoforge:${rootProject.property("kotlin_for_forge_runtime_version")}") {
+        // NeoForge provides its own loader. A second copy from here stops the dev client from starting.
+        exclude(group = "net.neoforged.fancymodloader")
+    }
 
     forgeRuntimeLibrary("net.java.dev.jna:jna:5.14.0")
     forgeRuntimeLibrary("com.alphacephei:vosk:0.3.45")
@@ -76,9 +95,27 @@ tasks.processResources {
     }
 }
 
+// Before the self-test starts: your own ChatPlus config (-Pstafftools.chatConfig=<file>) and GUI scale (-Pstafftools.guiScale=<n>),
+// so the screenshots look like your game. Both are optional and stay on your machine.
+val prepareSelfTest by tasks.registering {
+    doLast {
+        val runDir = file("run-selftest")
+        project.findProperty("stafftools.chatConfig")?.let { source ->
+            val src = file(source.toString())
+            copy { from(src); into(runDir.resolve("config/chatplus")) }
+        }
+        val scale = project.findProperty("stafftools.guiScale")?.toString() ?: "3"
+        runDir.mkdirs()
+        runDir.resolve("options.txt").writeText(listOf("guiScale:$scale", "tutorialStep:none", "onboardAccessibility:false", "joinedFirstServer:true").joinToString("\n"))
+    }
+}
+tasks.matching { it.name == "runSelfTest" }.configureEach { dependsOn(prepareSelfTest) }
+
 tasks.shadowJar {
     exclude("fabric.mod.json")
     exclude("architectury.common.json")
+    // The self-test harness is for development only and never ships.
+    exclude("com/ebicep/chatplus/neoforge/devtest/**")
     configurations = listOf(shadowCommon)
     archiveClassifier.set("dev-shadow")
 }

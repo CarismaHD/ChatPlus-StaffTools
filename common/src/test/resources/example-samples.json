@@ -1,0 +1,39 @@
+{
+  "lookups": [
+    {
+      "lines": ["📋 -- Record: Alice --", "• Strikes = 2", "• Remarks = 1", "• Bans active = 1", "Strikes>",
+        "  12) <ACTIVE> 2026-01-02 10:00 by Mod_A :: Hub :: clear the farm",
+        "  11) 2026-01-01 09:00 by Mod_B :: first part", "  second part",
+        "Remarks>", "  5) 2026-01-03 08:00 by Mod_A :: see https://logs.example.org/abc",
+        "Ban history>", "  raw ban line"],
+      "name": "Alice", "warnings": "2", "notes": "1", "bans": "1",
+      "warningIds": ["12", "11"], "noteIds": ["5"],
+      "firstWarningText": "Hub :: clear the farm", "firstWarningStaff": "Mod_A",
+      "rejects": ["Member | Bob » hi", "(Staff) Mod_A » hello", "Saved screenshot as a.png", "Some other text"]
+    }
+  ],
+  "clicks": [
+    { "value": "/whisper Alice ", "name": "Alice" },
+    { "value": "/tell Alice ", "name": null },
+    { "value": "/whisper bad-name ", "name": null }
+  ],
+  "commands": [
+    { "id": "lookup", "values": { "player": "Alice" }, "expect": "/guard record Alice", "confirm": "false" },
+    { "id": "warn_add", "values": { "player": "Alice", "reason": "too much lag" }, "expect": "/guard strike Alice too much lag", "confirm": "true" },
+    { "id": "tempban", "values": { "player": "Alice", "duration": "1d", "silent": "--quiet", "reason": "r" }, "expect": "/guard timeout Alice 1d --quiet r", "confirm": "true" },
+    { "id": "tempban", "values": { "player": "Alice", "duration": "1d", "reason": "r" }, "expect": "/guard timeout Alice 1d r" },
+    { "id": "warn_remove", "values": { "player": "Alice", "warningId": "12" }, "expect": "/guard unstrike Alice 12", "confirm": "true" }
+  ],
+  "tabs": [
+    { "text": "Open tickets (48h)", "tabs": ["Tickets"] },
+    { "text": "T7 @hub issue: \"my chest vanished\" from Carol [Reply]", "tabs": ["Tickets"] },
+    { "text": "{Watch} Zed moving 40.5 b/s", "tabs": ["Watch"] },
+    { "text": "Member | Alice » Open tickets please", "tabs": [] }
+  ],
+  "servers": [
+    { "address": "example.net", "active": "true" },
+    { "address": "Play.Example.net:25565", "active": "true" },
+    { "address": "other.org", "active": "false" },
+    { "address": "example.net.evil.org", "active": "false" }
+  ]
+}

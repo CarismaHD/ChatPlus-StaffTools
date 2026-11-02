@@ -49,12 +49,15 @@ open class Translator(val message: String, val from: Language?, val to: Language
     }
 
     open fun onTranslate(matchedRegex: String?, translatedMessage: TranslateResult, fromLanguage: String?) {
-        Minecraft.getInstance().player?.sendSystemMessage(
-            ComponentUtil.literalIgnored(
-                (matchedRegex ?: "") + translatedMessage.translatedText + " (" + (fromLanguage ?: "Unknown") + ")",
-                ComponentUtil.LiteralIgnoredType.TRANSLATE
-            ).withStyle(ChatFormatting.GREEN)
-        )
+        // This runs on the translation thread. Chat may only be changed from the client thread.
+        Minecraft.getInstance().execute {
+            Minecraft.getInstance().player?.sendSystemMessage(
+                ComponentUtil.literalIgnored(
+                    (matchedRegex ?: "") + translatedMessage.translatedText + " (" + (fromLanguage ?: "Unknown") + ")",
+                    ComponentUtil.LiteralIgnoredType.TRANSLATE
+                ).withStyle(ChatFormatting.GREEN)
+            )
+        }
     }
 
     fun translate(text: String): TranslateResult? {
@@ -97,6 +100,20 @@ open class Translator(val message: String, val from: Language?, val to: Language
 
 
 data class TranslateResult(val translatedText: String, val from: Language?)
+
+object TranslationSplit {
+    const val SEPARATOR = "§"
+
+    /**
+     * Splits a translation of several lines joined by [SEPARATOR] back into one piece per line. Returns null when the
+     * piece count no longer matches, since Google can drop or move the separator. Before, a mismatch either crashed
+     * the translation thread or paired translations with the wrong lines.
+     */
+    fun split(translated: String, lineCount: Int): List<String>? {
+        val pieces = translated.split(SEPARATOR).map { it.trim() }
+        return if (pieces.size == lineCount) pieces else null
+    }
+}
 
 @Serializable
 data class RegexMatch(var match: String, var senderNameGroupIndex: Int)

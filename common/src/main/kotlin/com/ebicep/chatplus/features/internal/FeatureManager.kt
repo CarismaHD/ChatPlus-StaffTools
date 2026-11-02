@@ -3,6 +3,7 @@ package com.ebicep.chatplus.features.internal
 import com.ebicep.chatplus.features.*
 import com.ebicep.chatplus.features.chattabs.ChatTabs
 import com.ebicep.chatplus.features.chatwindows.ChatWindowsManager
+import com.ebicep.chatplus.features.moderation.ModToolsFeature
 import com.ebicep.chatplus.features.speechtotext.SpeechToText
 import com.ebicep.chatplus.features.textbarelements.TextBarElements
 
@@ -41,6 +42,7 @@ object FeatureManager {
         MessageImagePreview
         InputBoxCharacterCount
         InputBoxNormalizeInput
+        ModToolsFeature
 //        AlternatingColorBackground
     }
 

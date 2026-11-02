@@ -1,6 +1,7 @@
 package com.ebicep.chatplus.translator
 
 import com.ebicep.chatplus.hud.ChatPlusScreen
+import net.minecraft.client.Minecraft
 
 class SelfTranslator(val toTranslate: String, val prefix: String) : Thread() {
 
@@ -16,7 +17,10 @@ class SelfTranslator(val toTranslate: String, val prefix: String) : Thread() {
                 "$prefix "
             }
             val text = pre + translateResult.translatedText
-            ChatPlusScreen.sendChatMessage(message = text)
+            // Sending touches the connection and chat history, which belong to the client thread.
+            Minecraft.getInstance().execute {
+                ChatPlusScreen.sendChatMessage(message = text)
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 modLoader = "kotlinforforge"
 loaderVersion = "[4,)"
-issueTrackerURL = "https://github.com/ebicep/ChatPlus/issues"
+issueTrackerURL = "https://github.com/CarismaHD/ChatPlus-StaffTools/issues"
 license = "GPL-3.0"
 
 [[mods]]

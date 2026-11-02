@@ -8,6 +8,7 @@ import com.ebicep.chatplus.features.DeleteMessages.F3DMode
 import com.ebicep.chatplus.features.FilterMessages.DEFAULT_COLOR
 import com.ebicep.chatplus.features.MovableChat.MOVABLE_CHAT_COLOR
 import com.ebicep.chatplus.features.SendNote.NOTE_COLOR
+import com.ebicep.chatplus.features.moderation.ModTools
 import com.ebicep.chatplus.features.chattabs.*
 import com.ebicep.chatplus.features.chatwindows.ChatWindow
 import com.ebicep.chatplus.features.chatwindows.OutlineSettings
@@ -77,7 +78,33 @@ object ConfigScreenImpl {
         addPlayerHeadChatDisplayOption(builder, entryBuilder)
         addTranslatorOptions(builder, entryBuilder)
         addSpeechToTextOptions(builder, entryBuilder)
+        addModerationOptions(builder, entryBuilder)
         return builder.build()
+    }
+
+    private fun addModerationOptions(builder: ConfigBuilder, entryBuilder: ConfigEntryBuilder) {
+        builder.getOrCreateCategory(Component.translatable("chatPlus.moderation.title").withStyle(ChatFormatting.RED)).with(
+            entryBuilder.startTextDescription(Component.literal(ModTools.status()).withStyle(ChatFormatting.GRAY)).build(),
+            entryBuilder.booleanToggle(
+                "chatPlus.moderation.toggle",
+                Config.values.moderationEnabled
+            ) { Config.values.moderationEnabled = it },
+            entryBuilder.intSlider(
+                "chatPlus.moderation.commandDelay",
+                Config.values.moderationCommandDelayMs,
+                500,
+                5000
+            ) { Config.values.moderationCommandDelayMs = it },
+            entryBuilder.intSlider(
+                "chatPlus.moderation.lookupWait",
+                Config.values.moderationLookupWaitMs,
+                500,
+                5000
+            ) { Config.values.moderationLookupWaitMs = it },
+            entryBuilder.startTextDescription(
+                Component.translatable("chatPlus.moderation.profile", ModTools.dir().resolve("profile.json").toString()).withStyle(ChatFormatting.DARK_GRAY)
+            ).build(),
+        )
     }
 
     @JvmStatic
