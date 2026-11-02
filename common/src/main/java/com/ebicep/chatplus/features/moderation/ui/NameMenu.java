@@ -17,12 +17,16 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The small menu for a player's name right-clicked in chat. It is drawn like a vanilla tooltip on top of the open chat
- * screen, which stays open underneath, so chat keeps its full height and tabs. The username comes from the server's
- * own click data on the name. Opening it sends nothing.
+ * screen, which stays open underneath, so chat keeps its full height and tabs. It sits beside the chat window, level
+ * with the clicked line, so it covers no messages. The username comes from the server's own click data on the name.
+ * Opening it sends nothing.
  */
 public final class NameMenu {
     private static final int ROW_H = 12;
     private static final int PAD = 4;
+    /** Space between the menu and the chat window or the clicked line. */
+    private static final int GAP = 6;
+    private static final int MARGIN = 4;
     /** Commands offered for every player, in this order, when the profile has them. */
     private static final List<String> STANDARD = List.of("msg", "note_add", "warn_add", "tempban", "unstuck");
     private static final List<String> PUNISHING = List.of("warn_add", "tempban");
@@ -40,7 +44,7 @@ public final class NameMenu {
     private final int boxW;
     private final int boxH;
 
-    private NameMenu(Screen chat, String player, double anchorX, double anchorY) {
+    private NameMenu(Screen chat, String player, double anchorX, double anchorY, int chatLeft, int chatRight) {
         this.chat = chat;
         this.player = player;
         Minecraft mc = Minecraft.getInstance();
@@ -74,13 +78,47 @@ public final class NameMenu {
         }
         boxW = w;
         boxH = PAD + 11 + 3 + entries.size() * ROW_H + PAD - 2;
-        boxX = (int) Math.min(anchorX + 4, chat.width - boxW - 6);
-        boxY = (int) Math.max(6, Math.min(anchorY - 4, chat.height - boxH - 6));
+        // Beside the chat window, the name row level with the clicked line: right of it, or left when there is no room.
+        int sideY = clamp((int) anchorY - PAD, MARGIN, chat.height - boxH - MARGIN);
+        if (chatRight + GAP + boxW <= chat.width - MARGIN) {
+            boxX = chatRight + GAP;
+            boxY = sideY;
+        } else if (chatLeft - GAP - boxW >= MARGIN) {
+            boxX = chatLeft - GAP - boxW;
+            boxY = sideY;
+        } else {
+            // Chat fills the width: above the clicked line, or below it when there is no room above.
+            boxX = clamp((int) anchorX, MARGIN, chat.width - boxW - MARGIN);
+            int above = (int) anchorY - GAP - boxH;
+            boxY = above >= MARGIN ? above : clamp((int) anchorY + GAP + 4, MARGIN, chat.height - boxH - MARGIN);
+        }
     }
 
-    /** Opens the menu over the given chat screen, replacing any menu already open. */
-    public static void show(Screen chat, String player, double mouseX, double mouseY) {
-        open = new NameMenu(chat, player, mouseX, mouseY);
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(value, max));
+    }
+
+    /**
+     * Opens the menu over the given chat screen, replacing any menu already open. chatLeft and chatRight are the chat
+     * window's edges, so the menu can sit beside it.
+     */
+    public static void show(Screen chat, String player, double mouseX, double mouseY, int chatLeft, int chatRight) {
+        open = new NameMenu(chat, player, mouseX, mouseY, chatLeft, chatRight);
+    }
+
+    /** The middle of a row of the open menu, for clicking it from a test. Row 0 is the first command. */
+    public static double[] rowCenter(int row) {
+        NameMenu menu = open;
+        if (menu == null) {
+            return null;
+        }
+        return new double[]{menu.boxX + menu.boxW / 2.0, menu.boxY + PAD + 11 + 3 + row * ROW_H + ROW_H / 2.0 - 1};
+    }
+
+    /** True when the point is inside the open menu. */
+    public static boolean covers(double x, double y) {
+        NameMenu menu = open;
+        return menu != null && x >= menu.boxX && x < menu.boxX + menu.boxW && y >= menu.boxY && y < menu.boxY + menu.boxH;
     }
 
     public static boolean isOpen() {

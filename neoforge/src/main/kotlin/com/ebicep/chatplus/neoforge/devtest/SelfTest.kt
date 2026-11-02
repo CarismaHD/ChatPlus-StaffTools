@@ -150,11 +150,16 @@ object SelfTest {
         }
     }
 
-    /** Where the name menu draws its rows, mirroring NameMenu's layout for a menu opened on the left of the screen. */
-    private fun menuRowY(screen: Screen, index: Int, entryCount: Int): Double {
-        val boxH = 4 + 11 + 3 + entryCount * 12 + 2
-        val boxY = maxOf(6.0, minOf(nameY - 4, (screen.height - boxH - 6).toDouble()))
-        return boxY + 4 + 11 + 3 + index * 12 + 3
+    /** Clicks a row of the open name menu. Row 0 is the first command. */
+    private fun clickMenuRow(screen: Screen, row: Int) {
+        val (x, y) = NameMenu.rowCenter(row)!!
+        click(screen, x, y, 0)
+    }
+
+    /** True when the open menu covers any part of the clicked line, from the left edge of chat to its right edge. */
+    private fun menuCoversLine(): Boolean {
+        val right = ChatManager.globalSelectedTab.chatWindow.renderer.backgroundWidthEndX
+        return (0..right step 2).any { NameMenu.covers(it.toDouble(), nameY) }
     }
 
     /** Finds the decorated name on screen by asking ChatPlus which text sits under each point. Lines move as chat arrives. */
@@ -187,8 +192,7 @@ object SelfTest {
     private fun planSteps() {
         val mc = Minecraft.getInstance()
         val engine = ModTools.engine()
-        // Entries for the example profile: Record, Tell, Remark, Strike, Timeout, Rescue, Where?, Inventory, Copy name.
-        val menuEntries = 9
+        // Rows for the example profile: Record, Tell, Remark, Strike, Timeout, Rescue, Where?, Inventory, Copy name.
 
         step(0) {
             check("tools inactive in singleplayer", !ModTools.active())
@@ -222,13 +226,14 @@ object SelfTest {
             openMenuOnName(mc)
             check("right-click on a name opens the menu", NameMenu.isOpen(), screenName())
             check("chat stays open behind the menu, at full height", mc.screen is ChatScreen, screenName())
+            check("menu does not cover the clicked line", NameMenu.isOpen() && !menuCoversLine())
         }
         step(10) {
             shot("name-menu")
         }
         step(3) {
             val screen = mc.screen!!
-            click(screen, nameX + 10, menuRowY(screen, 3, menuEntries), 0)
+            clickMenuRow(screen, 3)
             check("Strike opens the reason popup", screenName() == "ActionScreen", screenName())
         }
         step(5) {
@@ -271,7 +276,7 @@ object SelfTest {
         step(5) {
             val screen = mc.screen!!
             check("menu opens again", NameMenu.isOpen() && mc.screen is ChatScreen, screenName())
-            click(screen, nameX + 10, menuRowY(screen, 0, menuEntries), 0)
+            clickMenuRow(screen, 0)
             check("Record opens the lookup popup", screenName() == "LookupScreen", screenName())
         }
         step(2) {
