@@ -40,7 +40,8 @@ object ModToolsFeature {
             val click = ChatManager.globalSelectedTab.getComponentStyleAt(it.mouseX, it.mouseY)?.clickEvent ?: return@register
             val player = ModTools.engine().nameFromClick(click.value) ?: return@register
             val renderer = ChatManager.globalSelectedTab.chatWindow.renderer
-            NameMenu.show(it.screen, player, it.mouseX, it.mouseY, renderer.internalX, renderer.backgroundWidthEndX)
+            val lineHeight = kotlin.math.ceil(renderer.lineHeight * renderer.scale).toInt()
+            NameMenu.show(it.screen, player, it.mouseX, it.mouseY, lineHeight)
             usedClick = true
             it.returnFunction = true
         }

@@ -156,11 +156,19 @@ object SelfTest {
         click(screen, x, y, 0)
     }
 
-    /** True when the open menu covers any part of the clicked line, from the left edge of chat to its right edge. */
+    /** True when the open menu covers any part of the clicked line: its whole width, and its full height around the click. */
     private fun menuCoversLine(): Boolean {
-        val right = ChatManager.globalSelectedTab.chatWindow.renderer.backgroundWidthEndX
-        return (0..right step 2).any { NameMenu.covers(it.toDouble(), nameY) }
+        val renderer = ChatManager.globalSelectedTab.chatWindow.renderer
+        val lineHeight = kotlin.math.ceil(renderer.lineHeight * renderer.scale).toInt()
+        return (0..renderer.backgroundWidthEndX step 2).any { x ->
+            (-lineHeight..lineHeight).any { dy -> ChatManager.globalSelectedTab.getComponentStyleAt(x.toDouble(), nameY + dy) != null &&
+                    sameLine(nameY + dy) && NameMenu.covers(x.toDouble(), nameY + dy) }
+        }
     }
+
+    /** True when screen row y shows the same chat line as the clicked name. */
+    private fun sameLine(y: Double): Boolean =
+        ChatManager.globalSelectedTab.getHoveredOverMessageLine(nameX, y) == ChatManager.globalSelectedTab.getHoveredOverMessageLine(nameX, nameY)
 
     /** Finds the decorated name on screen by asking ChatPlus which text sits under each point. Lines move as chat arrives. */
     private fun locateName(screen: Screen): Boolean {

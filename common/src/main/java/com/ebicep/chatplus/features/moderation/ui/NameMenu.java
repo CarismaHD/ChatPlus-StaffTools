@@ -17,14 +17,14 @@ import net.minecraft.network.chat.Component;
 
 /**
  * The small menu for a player's name right-clicked in chat. It is drawn like a vanilla tooltip on top of the open chat
- * screen, which stays open underneath, so chat keeps its full height and tabs. It sits beside the chat window, level
- * with the clicked line, so it covers no messages. The username comes from the server's own click data on the name.
- * Opening it sends nothing.
+ * screen, which stays open underneath, so chat keeps its full height and tabs. It opens just above the clicked line,
+ * starting at the click, so that line stays readable. The username comes from the server's own click data on the
+ * name. Opening it sends nothing.
  */
 public final class NameMenu {
     private static final int ROW_H = 12;
     private static final int PAD = 4;
-    /** Space between the menu and the chat window or the clicked line. */
+    /** Space between the menu and the clicked line. */
     private static final int GAP = 6;
     private static final int MARGIN = 4;
     /** Commands offered for every player, in this order, when the profile has them. */
@@ -44,7 +44,7 @@ public final class NameMenu {
     private final int boxW;
     private final int boxH;
 
-    private NameMenu(Screen chat, String player, double anchorX, double anchorY, int chatLeft, int chatRight) {
+    private NameMenu(Screen chat, String player, double anchorX, double anchorY, int lineHeight) {
         this.chat = chat;
         this.player = player;
         Minecraft mc = Minecraft.getInstance();
@@ -78,20 +78,11 @@ public final class NameMenu {
         }
         boxW = w;
         boxH = PAD + 11 + 3 + entries.size() * ROW_H + PAD - 2;
-        // Beside the chat window, the name row level with the clicked line: right of it, or left when there is no room.
-        int sideY = clamp((int) anchorY - PAD, MARGIN, chat.height - boxH - MARGIN);
-        if (chatRight + GAP + boxW <= chat.width - MARGIN) {
-            boxX = chatRight + GAP;
-            boxY = sideY;
-        } else if (chatLeft - GAP - boxW >= MARGIN) {
-            boxX = chatLeft - GAP - boxW;
-            boxY = sideY;
-        } else {
-            // Chat fills the width: above the clicked line, or below it when there is no room above.
-            boxX = clamp((int) anchorX, MARGIN, chat.width - boxW - MARGIN);
-            int above = (int) anchorY - GAP - boxH;
-            boxY = above >= MARGIN ? above : clamp((int) anchorY + GAP + 4, MARGIN, chat.height - boxH - MARGIN);
-        }
+        // Just above the clicked line, starting at the click. Below the line when there is no room above. The click can
+        // be anywhere in the line, so a full line height is kept clear on that side.
+        boxX = clamp((int) anchorX, MARGIN, chat.width - boxW - MARGIN);
+        int above = (int) anchorY - lineHeight - GAP - boxH;
+        boxY = above >= MARGIN ? above : clamp((int) anchorY + lineHeight + GAP, MARGIN, chat.height - boxH - MARGIN);
     }
 
     private static int clamp(int value, int min, int max) {
@@ -99,11 +90,11 @@ public final class NameMenu {
     }
 
     /**
-     * Opens the menu over the given chat screen, replacing any menu already open. chatLeft and chatRight are the chat
-     * window's edges, so the menu can sit beside it.
+     * Opens the menu over the given chat screen, at the clicked name, replacing any menu already open. lineHeight is the
+     * height of a chat line on screen.
      */
-    public static void show(Screen chat, String player, double mouseX, double mouseY, int chatLeft, int chatRight) {
-        open = new NameMenu(chat, player, mouseX, mouseY, chatLeft, chatRight);
+    public static void show(Screen chat, String player, double mouseX, double mouseY, int lineHeight) {
+        open = new NameMenu(chat, player, mouseX, mouseY, lineHeight);
     }
 
     /** The middle of a row of the open menu, for clicking it from a test. Row 0 is the first command. */
