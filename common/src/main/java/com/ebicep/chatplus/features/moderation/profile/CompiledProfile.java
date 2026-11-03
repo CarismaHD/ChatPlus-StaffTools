@@ -20,6 +20,7 @@ public final class CompiledProfile {
     public final Rules stripPrefixes;
     public final Rules nameFromClick;
     public final Rules chatLines;
+    public final Rules nickFromTab;
     public final Rules lookupStart;
     public final Rules lookupCount;
     public final Rules lookupEntry;
@@ -68,6 +69,7 @@ public final class CompiledProfile {
         stripPrefixes = new Rules("stripPrefixes", p.stripPrefixes, errors);
         nameFromClick = new Rules("chat.nameFromClick", chat.nameFromClick, errors);
         chatLines = new Rules("chat.chatLines", chat.chatLines, errors);
+        nickFromTab = new Rules("chat.nickFromTab", chat.nickFromTab, errors);
         lookupStart = new Rules("lookup.start", lk.start, errors);
         lookupCount = new Rules("lookup.count", lk.count, errors);
         lookupEntry = new Rules("lookup.entry", lk.entry, errors);

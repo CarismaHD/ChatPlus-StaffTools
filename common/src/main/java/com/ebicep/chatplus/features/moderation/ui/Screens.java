@@ -13,6 +13,11 @@ public final class Screens {
         return new PlayerListScreen(parent);
     }
 
+    /** For tests: presses the Seen button in a player's row of an open player list. */
+    public static boolean pressSeen(Screen screen, String name) {
+        return screen instanceof PlayerListScreen list && list.pressSeen(name);
+    }
+
     /** For tests: where a player's row is in an open player list, or null. */
     public static double[] playerRow(Screen screen, String name) {
         return screen instanceof PlayerListScreen list ? list.rowCenter(name) : null;

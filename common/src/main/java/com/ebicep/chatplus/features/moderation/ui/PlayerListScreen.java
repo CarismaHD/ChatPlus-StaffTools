@@ -1,8 +1,13 @@
 package com.ebicep.chatplus.features.moderation.ui;
 
 import com.ebicep.chatplus.features.moderation.ModTools;
+import com.ebicep.chatplus.features.moderation.core.Engine;
 import com.ebicep.chatplus.features.moderation.core.PlayerDirectory;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -13,11 +18,13 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Everyone seen online on this server, searchable, so a player can be picked even when they aren't in chat. Clicking
- * a name opens the same menu as right-clicking it in chat. Uses only vanilla widgets.
+ * Everyone seen online on this server, searchable by username or nickname, so a player can be picked even when they
+ * aren't in chat. Clicking a name opens the same menu as right-clicking it in chat. Offline players have a Seen button,
+ * which asks the server when they were last online and updates the list. Uses only vanilla widgets.
  */
 final class PlayerListScreen extends Screen {
-    private static final int ROW_H = 12;
+    private static final int ROW_H = 14;
+    private static final int SEEN_W = 32;
 
     private final Screen parent;
     private EditBox search;
@@ -28,6 +35,12 @@ final class PlayerListScreen extends Screen {
     private int listBottom;
     private int left;
     private int columnW;
+    /** One Seen button per visible row, moved to whichever offline player is in that row. */
+    private final List<Button> seenButtons = new ArrayList<>();
+    private final List<PlayerDirectory.Player> rowPlayers = new ArrayList<>();
+    /** Players whose /seen is on its way, and the last reply, shown under the list. */
+    private final Map<UUID, Boolean> asking = new HashMap<>();
+    private String lastReply;
 
     PlayerListScreen(Screen parent) {
         super(Component.literal("Players"));
@@ -40,12 +53,21 @@ final class PlayerListScreen extends Screen {
         left = (width - columnW) / 2;
         String query = search != null ? search.getValue() : "";
         search = new EditBox(font, left, 30, columnW, 20, Component.literal("Search"));
-        search.setHint(Component.literal("Search players").withStyle(ChatFormatting.DARK_GRAY));
+        search.setHint(Component.literal("Search players or nicknames").withStyle(ChatFormatting.DARK_GRAY));
         search.setValue(query);
         addRenderableWidget(search);
         setInitialFocus(search);
         listTop = 56;
-        listBottom = height - 34;
+        listBottom = height - 46;
+        seenButtons.clear();
+        rowPlayers.clear();
+        for (int i = 0; i < visibleRows(); i++) {
+            int row = i;
+            Button b = addRenderableWidget(Button.builder(Component.literal("Seen"), btn -> askSeen(row)).bounds(0, 0, SEEN_W, ROW_H - 2).build());
+            b.visible = false;
+            seenButtons.add(b);
+            rowPlayers.add(null);
+        }
         addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose()).bounds(width / 2 - 75, height - 26, 150, 20).build());
         lastQuery = null;
     }
@@ -64,11 +86,43 @@ final class PlayerListScreen extends Screen {
         return Math.max(1, (listBottom - listTop) / ROW_H);
     }
 
+    /** Sends /seen for the player in a row, on this click only, and updates their last-seen time from the reply. */
+    private void askSeen(int row) {
+        PlayerDirectory.Player p = rowPlayers.get(row);
+        if (p == null) {
+            return;
+        }
+        asking.put(p.id(), Boolean.TRUE);
+        lastReply = null;
+        Engine.Submission s = ModTools.engine().submit(ModTools.SEEN, ModTools.playerValues(p.name()), response -> {
+            asking.remove(p.id());
+            List<String> lines = response.parsed() instanceof List<?> l ? l.stream().map(String::valueOf).toList() : List.of();
+            ModTools.applySeenReply(p.name(), lines);
+            lastReply = lines.isEmpty() ? p.name() + ": no reply from the server. Check chat." : String.join(" ", lines);
+        });
+        if (!s.queued()) {
+            asking.remove(p.id());
+            lastReply = "Not sent: " + String.join(", ", s.problems());
+        }
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         refresh();
-        super.render(g, mouseX, mouseY, partialTick);
         PlayerDirectory dir = ModTools.players();
+        boolean canAskSeen = ModTools.engine().hasCommand(ModTools.SEEN);
+        // Place the Seen buttons before drawing, so they show in the right rows this frame.
+        for (int i = 0; i < seenButtons.size(); i++) {
+            int index = scroll + i;
+            PlayerDirectory.Player p = index < shown.size() ? shown.get(index) : null;
+            rowPlayers.set(i, p);
+            Button b = seenButtons.get(i);
+            b.visible = p != null && canAskSeen && !dir.isOnline(p.id()) && !NameMenu.isOpen();
+            b.active = p != null && !asking.containsKey(p.id());
+            b.setX(left + columnW - 4 - SEEN_W);
+            b.setY(listTop + i * ROW_H + 1);
+        }
+        super.render(g, mouseX, mouseY, partialTick);
         g.drawCenteredString(font, Component.literal("Players: ")
                 .append(Component.literal(dir.onlineCount() + " online").withStyle(ChatFormatting.GREEN))
                 .append(Component.literal(", " + dir.size() + " seen").withStyle(ChatFormatting.GRAY)), width / 2, 14, 0xFFFFFF);
@@ -80,21 +134,35 @@ final class PlayerListScreen extends Screen {
         }
         g.enableScissor(left, listTop, left + columnW, listBottom);
         long now = System.currentTimeMillis();
-        int y = listTop;
-        for (int i = scroll; i < shown.size() && y < listBottom; i++) {
-            PlayerDirectory.Player p = shown.get(i);
-            boolean online = dir.isOnline(p.id());
-            boolean over = !NameMenu.isOpen() && mouseX >= left && mouseX < left + columnW && mouseY >= y && mouseY < y + ROW_H;
-            if (over) {
-                g.fill(left, y, left + columnW, y + ROW_H, 0x30FFFFFF);
+        for (int i = 0; i < seenButtons.size(); i++) {
+            PlayerDirectory.Player p = rowPlayers.get(i);
+            if (p == null) {
+                break;
             }
-            g.drawString(font, p.name(), left + 4, y + 2, online ? 0xFFFFFFFF : 0xFFAAAAAA);
+            int y = listTop + i * ROW_H;
+            boolean online = dir.isOnline(p.id());
+            int statusRight = left + columnW - 4 - (seenButtons.get(i).visible ? SEEN_W + 4 : 0);
+            boolean over = !NameMenu.isOpen() && mouseX >= left && mouseX < statusRight && mouseY >= y && mouseY < y + ROW_H;
+            if (over) {
+                g.fill(left, y, statusRight, y + ROW_H, 0x30FFFFFF);
+            }
             Component status = online ? Component.literal("online").withStyle(ChatFormatting.GREEN)
+                    : asking.containsKey(p.id()) ? Component.literal("asking...").withStyle(ChatFormatting.GRAY)
                     : Component.literal("seen " + ago(now - p.lastSeen())).withStyle(ChatFormatting.GRAY);
-            g.drawString(font, status, left + columnW - 4 - font.width(status), y + 2, 0xFFFFFFFF);
-            y += ROW_H;
+            int statusX = statusRight - font.width(status);
+            g.drawString(font, status, statusX, y + 3, 0xFFFFFFFF);
+            g.drawString(font, p.name(), left + 4, y + 3, online ? 0xFFFFFFFF : 0xFFAAAAAA);
+            if (p.nick() != null) {
+                int nickX = left + 4 + font.width(p.name()) + 6;
+                String nick = font.plainSubstrByWidth(p.nick(), Math.max(0, statusX - 6 - nickX));
+                g.drawString(font, nick, nickX, y + 3, 0xFF777777);
+            }
         }
         g.disableScissor();
+        if (lastReply != null) {
+            String line = font.plainSubstrByWidth(lastReply, columnW);
+            g.drawString(font, line, left, listBottom + 4, 0xFFAAAAAA);
+        }
         NameMenu.render(g, mouseX, mouseY);
     }
 
@@ -138,10 +206,25 @@ final class PlayerListScreen extends Screen {
         return null;
     }
 
+    /** For tests: presses the Seen button in a player's row, if it has one. */
+    boolean pressSeen(String name) {
+        for (int i = 0; i < rowPlayers.size(); i++) {
+            PlayerDirectory.Player p = rowPlayers.get(i);
+            if (p != null && p.name().equalsIgnoreCase(name) && seenButtons.get(i).visible) {
+                seenButtons.get(i).onPress();
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (NameMenu.isOpen()) {
             NameMenu.click(mouseX, mouseY, button);
+            return true;
+        }
+        if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
         PlayerDirectory.Player p = rowAt(mouseX, mouseY);
@@ -149,7 +232,7 @@ final class PlayerListScreen extends Screen {
             NameMenu.show(this, p.name(), mouseX, mouseY, ROW_H);
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return false;
     }
 
     @Override

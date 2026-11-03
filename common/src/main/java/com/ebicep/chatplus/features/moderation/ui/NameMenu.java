@@ -154,7 +154,12 @@ public final class NameMenu {
             Minecraft.getInstance().setScreen(new ActionScreen(parent, id, player, Map.of()));
             return;
         }
-        Engine.Submission s = engine.submit(id, ModTools.playerValues(player), null);
+        // A /seen reply also updates the player list's last-seen time.
+        Engine.Submission s = engine.submit(id, ModTools.playerValues(player), !ModTools.SEEN.equals(id) ? null : response -> {
+            if (response.parsed() instanceof List<?> lines) {
+                ModTools.applySeenReply(player, lines.stream().map(String::valueOf).toList());
+            }
+        });
         if (!s.queued()) {
             ChatPlus.INSTANCE.sendMessage(Component.literal("Not sent: " + String.join(", ", s.problems())).withStyle(ChatFormatting.RED));
         }

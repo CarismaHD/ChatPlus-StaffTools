@@ -46,7 +46,7 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 **Build**
 - NeoForge only. The Fabric build is turned off.
 - Built against Minecraft 1.21.1, NeoForge 21.1.265 and Architectury 13.0.11 (ChatPlus 2.7.0 used Minecraft 1.21, NeoForge 21.0 and Architectury 13.0.1).
-- Renamed to ChatPlus Staff Tools, version `2.7.0-st.3`, jar `chatplus-stafftools-neoforge-<version>.jar`. The mod ID stays `chatplus`, and the settings file stays `chatplus-v2.7.0.json`.
+- Renamed to ChatPlus Staff Tools, version `2.7.0-st.4`, jar `chatplus-stafftools-neoforge-<version>.jar`. The mod ID stays `chatplus`, and the settings file stays `chatplus-v2.7.0.json`.
 - Issues link to this repository instead of upstream.
 - New: unit tests for the staff tools and translate parsing, an offline self-test client (`runSelfTest`), and a release check for private terms (`tools/check-private-terms.py`).
 
@@ -57,7 +57,7 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 | Name menu | Right-click a player's name in chat. A small menu, drawn like a normal tooltip, lists Lookup, Message, Note, Warn, Temp-ban, Unstuck, any extra commands the profile adds, and Copy name. |
 | Lookup screen | Shows the player's warnings, notes and active bans from the server's own lookup command. Each warning and note has a Remove button, and active bans have Unban. |
 | Confirm screen | Anything that changes something opens a screen showing the exact command that will be sent, with Cancel and Send. Send can't be clicked for the first half second, so a double-click never sends by accident. |
-| Player list | Everyone you've seen online on this server, with a search box. Online players are listed first, then the most recently seen. Click a name for the same menu as in chat. Open it with `/mt players` or the **P** button on the chat bar. |
+| Player list | Everyone you've seen online on this server, with a search box. Online players are listed first, then the most recently seen. Nicknames from the tab list are shown next to usernames and can be searched. Offline players have a **Seen** button that asks the server when they were last online and updates the list. Click a name for the same menu as in chat. Open it with `/mt players` or the **P** button on the chat bar. |
 | Before punishing | Warn and Temp-ban show the player's last 3 messages from chat, warn when someone with a look-alike name is online (such as `Steve_` for `Steve`), and mark the player "(offline)" when they aren't online. |
 | Location and record | Warn, Temp-ban and Note show your coordinates, dimension and biome, the date and time, and the player's warnings, notes and active bans from this session's lookup. **Insert location** adds "at 120 64 -300 (overworld)" to the reason, and **Insert time** adds the time. **Chunk owner** sends the profile's `chunk_owner` command (only when clicked) and shows the reply on the screen. |
 | Missing-slash guard | A message like `staff ban Steve 1d`, a server command typed without its `/`, is held back with a note instead of being posted in chat. Your text stays in the box. Press Enter again within 10 seconds to send it as chat anyway. It checks the commands the server sends you, so ordinary sentences such as "help me" go through. |
@@ -74,7 +74,7 @@ Everything else is ChatPlus 2.7.0 as released.
 - Commands go one at a time with a delay between them. Leaving or changing server clears anything still waiting.
 - The player in the menu always comes from the server's own click data on their name (for example a `/msg <name>` suggestion), never from a display name, nickname or rank.
 - Right-clicks with Shift, Ctrl or Alt held, and right-clicks on anything that isn't a name, go to ChatPlus as usual.
-- The player list is the only thing saved about players: username, UUID, and when you first and last saw them online. It's kept in `config/chatplus/moderation/players/`, on your PC only, and only for servers in the profile. No messages are saved.
+- The player list is the only thing saved about players: username, UUID, last known nickname, and when you first and last saw them online. It's kept in `config/chatplus/moderation/players/`, on your PC only, and only for servers in the profile. No messages are saved.
 
 ## Install
 
@@ -112,6 +112,7 @@ Patterns are Java regular expressions, matched against a whole line of chat with
 | `stripPrefixes` | Patterns removed from the start of a line before anything else is matched, for icons a server puts in front of text. |
 | `chat.nameFromClick` | Patterns applied to the click value on a player's name, with a `name` group. For example `^/msg (?<name>[A-Za-z0-9_]{3,16})(?:\s.*)?$`. Only valid Minecraft usernames are accepted. |
 | `chat.chatLines` | Patterns for normal player chat, so it is never mistaken for lookup output. |
+| `chat.nickFromTab` | Patterns applied to a player's name in the tab list, with a `nick` group for their nickname, for example to skip a rank word. Without one, leading `[bracketed]` tags are removed and the rest is the nickname. |
 | `lookup.start` | The first line of a lookup reply, with a `name` group. |
 | `lookup.count` | Count lines, with `kind` and `count` groups. |
 | `lookup.entry` | One warning or note, with `id`, `time`, `staff` and `text` groups, and optionally `status`. A following line that matches nothing else is joined to the entry, for long entries the server wraps. |
@@ -141,6 +142,7 @@ Patterns are Java regular expressions, matched against a whole line of chat with
 | `msg`, `note_add`, `warn_add`, `tempban`, `unstuck` | The name menu, in that order |
 | `warn_remove`, `note_remove`, `unban` | The lookup screen's buttons |
 | `chunk_owner` | The Chunk owner button on Warn, Temp-ban and Note. Use `"parser": "lines"` so the reply is shown. A `(?<team>...)` group in one of its `reply` patterns names the owning team. |
+| `seen` | The Seen button in the player list, and Seen in the name menu. With `"parser": "lines"` and a `reply` pattern that has a `seen` group (a date and time such as `2026-01-02 09:15:30 UTC`), the reply updates the player's last-seen time. |
 | `team_info` | When the chunk owner reply names a team, the button becomes **Team members** and sends this, with the team in `{team}`. |
 
 | Placeholder | Filled with |

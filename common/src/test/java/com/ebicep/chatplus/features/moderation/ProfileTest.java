@@ -32,7 +32,7 @@ class ProfileTest {
         CompiledProfile p = TestFiles.exampleProfile();
         assertEquals(List.of(), p.errors);
         assertEquals(2, p.tabs.size());
-        assertEquals(13, p.commands.size());
+        assertEquals(14, p.commands.size());
     }
 
     @Test

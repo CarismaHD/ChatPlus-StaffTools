@@ -8,7 +8,9 @@ import com.ebicep.chatplus.features.chattabs.ChatTab;
 import com.ebicep.chatplus.features.chatwindows.ChatWindow;
 import com.ebicep.chatplus.features.moderation.command.CommandQueue;
 import com.ebicep.chatplus.features.moderation.core.Engine;
+import com.ebicep.chatplus.features.moderation.core.Nicknames;
 import com.ebicep.chatplus.features.moderation.core.PlayerDirectory;
+import com.ebicep.chatplus.features.moderation.core.SeenTime;
 import com.ebicep.chatplus.features.moderation.core.SlashGuard;
 import com.ebicep.chatplus.features.moderation.parse.CapturedLine;
 import com.ebicep.chatplus.features.moderation.ui.Screens;
@@ -52,6 +54,8 @@ public final class ModTools {
     private static final int PLAYER_SAVE_TICKS = 20 * 60 * 5;
     /** How long a held-back message can be sent as chat by pressing Enter again. */
     private static final long HOLD_RESEND_MS = 10_000;
+    /** The profile command that asks the server when a player was last online. */
+    public static final String SEEN = "seen";
 
     private static Engine engine;
     private static Supplier<Screen> pendingScreen;
@@ -197,13 +201,28 @@ public final class ModTools {
             return;
         }
         Map<UUID, String> online = new HashMap<>();
+        Map<UUID, String> nicks = new HashMap<>();
         for (PlayerInfo info : connection.getOnlinePlayers()) {
             String name = info.getProfile().getName();
             if (name != null && !name.isEmpty()) {
                 online.put(info.getProfile().getId(), name);
+                Component tabName = info.getTabListDisplayName();
+                String nick = Nicknames.fromTabName(tabName != null ? tabName.getString() : null, name, engine().profile().nickFromTab);
+                if (nick != null) {
+                    nicks.put(info.getProfile().getId(), nick);
+                }
             }
         }
-        players.update(online, System.currentTimeMillis());
+        players.update(online, nicks, System.currentTimeMillis());
+    }
+
+    /**
+     * Applies a reply to the profile's {@code seen} command: its {@code seen} group, a date and time, becomes the
+     * player's last-seen time in the player list. Returns true when it changed anything.
+     */
+    public static boolean applySeenReply(String player, List<String> replyLines) {
+        Long when = SeenTime.parse(engine().replyGroup(SEEN, replyLines, "seen"));
+        return when != null && players.markSeen(player, when);
     }
 
     /** A received chat line. Never cancels or changes the message. */

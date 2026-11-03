@@ -35,6 +35,11 @@ public final class ServerProfile {
         public List<String> nameFromClick = new ArrayList<>();
         /** Normal chat lines, so they are never mistaken for lookup output. */
         public List<String> chatLines = new ArrayList<>();
+        /**
+         * Applied to a player's name in the tab list to find their nickname, group {@code nick}, such as a pattern that
+         * skips the rank. Without one, leading [bracketed] tags are removed and the rest is the nickname.
+         */
+        public List<String> nickFromTab = new ArrayList<>();
     }
 
     public static final class Lookup {

@@ -57,6 +57,7 @@ object SelfTest {
     private var nameX = 0.0
     private var nameY = 0.0
     private var lookupsAnswered = 0
+    private var seenExpected = 0L
 
     init {
         if (enabled) {
@@ -223,7 +224,7 @@ object SelfTest {
         }
         step(5) {
             receive(Component.literal("Member | ").append(named("Alice", "/whisper Alice ")).append(" » hello there"))
-            receive(Component.literal("Elder | ").append(named("𝕭𝖔𝖇 ☽", "/whisper RealBob ")).append(" » anyone got a dupe glitch"))
+            receive(Component.literal("Elder | ").append(named("𝕭𝖔𝖇 ★", "/whisper RealBob ")).append(" » anyone got a dupe glitch"))
             receive("Open tickets (48h)")
             receive("T7 @hub issue: \"my chest vanished\" from Carol [Reply]")
             receive("{Watch} Zed moving 40.5 b/s over 5.0s at 10,64,-20 in nether")
@@ -344,12 +345,18 @@ object SelfTest {
         }
         step(100) {
             val texts = tabLines().map { it.guiMessage.content.string }
-            val spanish = texts.firstOrNull { it.contains("(Spanish)") }
-            check("Spanish line translated", spanish != null, spanish ?: texts.takeLast(3).toString())
-            check("translation has no double spaces", spanish != null && !spanish.contains("  "), spanish ?: "")
-            check("translation keeps the sender in front", spanish?.startsWith("Member | Carlos » ") == true, spanish ?: "")
-            val french = texts.filter { it.contains("(French)") }
-            check("two selected French lines give two translations", french.size == 2, french.toString())
+            // These go to Google for real. When Google is rate limiting (after many runs in a row) they can't be
+            // judged, which says nothing about the mod, so they are skipped rather than failed.
+            if (texts.any { it.contains("Google is rate limiting translations") }) {
+                note("translate checks skipped: Google is rate limiting this connection; the mod showed the pause message")
+            } else {
+                val spanish = texts.firstOrNull { it.contains("(Spanish)") }
+                check("Spanish line translated", spanish != null, spanish ?: texts.takeLast(3).toString())
+                check("translation has no double spaces", spanish != null && !spanish.contains("  "), spanish ?: "")
+                check("translation keeps the sender in front", spanish?.startsWith("Member | Carlos » ") == true, spanish ?: "")
+                val french = texts.filter { it.contains("(French)") }
+                check("two selected French lines give two translations", french.size == 2, french.toString())
+            }
             shot("translated")
         }
         step(3) {
@@ -392,7 +399,24 @@ object SelfTest {
             val screen = mc.screen!!
             screen.keyPressed(256, 0, 0)
             check("Escape closes only the menu, the list stays", !NameMenu.isOpen() && screenName() == "PlayerListScreen", screenName())
-            "zzz".forEach { screen.charTyped(it, 0) }
+        }
+        // Seen asks the server and moves OldTimer's last-seen time to what the reply says.
+        step(3) {
+            check("an offline player has a Seen button", Screens.pressSeen(mc.screen!!, "OldTimer"))
+        }
+        step(5) {
+            val hourAgo = java.time.Instant.now().minusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+            val text = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(java.time.ZoneOffset.UTC).format(hourAgo)
+            receive("OldTimer was last seen $text UTC.")
+            seenExpected = hourAgo.toEpochMilli()
+        }
+        step(50) {
+            val seen = ModTools.players().byName("OldTimer").map { it.lastSeen() }.orElse(0L)
+            check("the /seen reply updates last seen", seen == seenExpected, "$seen vs $seenExpected")
+            shot("player-list-seen")
+        }
+        step(5) {
+            "zzz".forEach { mc.screen!!.charTyped(it, 0) }
         }
         step(3) {
             check("search hides players that don't match", Screens.playerRow(mc.screen!!, "OldTimer") == null)

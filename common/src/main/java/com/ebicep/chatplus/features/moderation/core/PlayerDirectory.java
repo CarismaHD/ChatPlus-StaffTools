@@ -23,17 +23,19 @@ import java.util.regex.Pattern;
 
 /**
  * Every player seen online on one server, for the player list. It is the one place the tools keep anything about
- * players on disk: the username, UUID, and when they were first and last seen online. Nothing else, and only for
- * servers in the profile.
+ * players on disk: the username, UUID, last known nickname, and when they were first and last seen. Nothing else, and
+ * only for servers in the profile.
  */
 public final class PlayerDirectory {
-    public record Player(UUID id, String name, long firstSeen, long lastSeen) {
+    /** @param nick the nickname from the tab list, or null when there is none or it is just the username */
+    public record Player(UUID id, String name, String nick, long firstSeen, long lastSeen) {
     }
 
     /** How a player is stored in the file. Plain fields, so the file stays readable. */
     private static final class Saved {
         String uuid;
         String name;
+        String nick;
         long firstSeen;
         long lastSeen;
     }
@@ -54,6 +56,11 @@ public final class PlayerDirectory {
      * without a real username are left out.
      */
     public void update(Map<UUID, String> nowOnline, long now) {
+        update(nowOnline, Map.of(), now);
+    }
+
+    /** As above, with nicknames by UUID. A player without one now keeps the last one known. */
+    public void update(Map<UUID, String> nowOnline, Map<UUID, String> nicknames, long now) {
         Set<UUID> ids = new HashSet<>();
         for (Map.Entry<UUID, String> e : nowOnline.entrySet()) {
             if (!isUsername(e.getValue())) {
@@ -61,11 +68,30 @@ public final class PlayerDirectory {
             }
             Player old = players.get(e.getKey());
             long first = old != null ? old.firstSeen() : now;
-            players.put(e.getKey(), new Player(e.getKey(), e.getValue(), first, now));
+            String nick = nicknames.get(e.getKey());
+            if (nick == null && old != null) {
+                nick = old.nick();
+            }
+            players.put(e.getKey(), new Player(e.getKey(), e.getValue(), nick, first, now));
             ids.add(e.getKey());
         }
         online = Set.copyOf(ids);
         dirty |= !ids.isEmpty();
+    }
+
+    /**
+     * Takes a last-seen time from the server, such as a /seen reply. It only moves the time forward, since the server
+     * may know of a visit this client missed. Returns true when it changed anything.
+     */
+    public boolean markSeen(String name, long when) {
+        Optional<Player> found = byName(name);
+        if (found.isEmpty() || when <= found.get().lastSeen()) {
+            return false;
+        }
+        Player p = found.get();
+        players.put(p.id(), new Player(p.id(), p.name(), p.nick(), Math.min(p.firstSeen(), when), when));
+        dirty = true;
+        return true;
     }
 
     public static boolean isUsername(String name) {
@@ -120,12 +146,12 @@ public final class PlayerDirectory {
         return online.size();
     }
 
-    /** Players whose name contains the query, ignoring case. Online first, then the most recently seen. */
+    /** Players whose name or nickname contains the query, ignoring case. Online first, then the most recently seen. */
     public List<Player> search(String query) {
         String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         List<Player> result = new ArrayList<>();
         for (Player p : players.values()) {
-            if (p.name().toLowerCase(Locale.ROOT).contains(q)) {
+            if (p.name().toLowerCase(Locale.ROOT).contains(q) || p.nick() != null && p.nick().toLowerCase(Locale.ROOT).contains(q)) {
                 result.add(p);
             }
         }
@@ -165,7 +191,7 @@ public final class PlayerDirectory {
             }
             try {
                 UUID id = UUID.fromString(s.uuid);
-                players.put(id, new Player(id, s.name, s.firstSeen, s.lastSeen));
+                players.put(id, new Player(id, s.name, s.nick, s.firstSeen, s.lastSeen));
             } catch (IllegalArgumentException ignored) {
                 // A hand-edited line with a broken UUID is skipped rather than losing the whole list.
             }
@@ -179,6 +205,7 @@ public final class PlayerDirectory {
             Saved s = new Saved();
             s.uuid = p.id().toString();
             s.name = p.name();
+            s.nick = p.nick();
             s.firstSeen = p.firstSeen();
             s.lastSeen = p.lastSeen();
             out.add(s);

@@ -31,7 +31,8 @@
     { "id": "where", "label": "Where?", "template": "/guard where {player}", "confirm": false, "menu": true },
     { "id": "inventory", "label": "Inventory", "template": "/peek {player}", "confirm": true, "menu": true },
     {"id": "chunk_owner", "label": "Chunk owner", "template": "/guard claim", "confirm": false, "parser": "lines", "reply": [".*Claimed: .+", "\\s*Owner: (?!.*'s Party)(?<team>\\S+) / (?<teamId>[0-9a-f]{8})\\S*", "\\s*Owner: .+", "\\s*Loaded: .+"]},
-    {"id": "team_info", "label": "Team", "template": "/guard team {team}#{teamId}", "confirm": false, "parser": "lines", "reply": ["== .+ ==", "Owner: .+", "Members:", "- .+"]}
+    {"id": "team_info", "label": "Team", "template": "/guard team {team}#{teamId}", "confirm": false, "parser": "lines", "reply": ["== .+ ==", "Owner: .+", "Members:", "- .+"]},
+    {"id": "seen", "label": "Seen", "template": "/guard seen {player}", "confirm": false, "menu": true, "parser": "lines", "reply": ["(?<name>\\w{3,16}) was last seen (?<seen>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}(?: UTC)?)\\.?"]}
   ],
   "tabs": [
     { "name": "Tickets", "pattern": "^(?:Open tickets.*|T\\d+ @\\S+ .*|Nothing open\\.)$" },

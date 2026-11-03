@@ -128,7 +128,7 @@ class EngineTest {
         assertFalse(engine.needsConfirm("lookup"));
         assertFalse(engine.needsConfirm("where"));
         assertTrue(engine.needsConfirm("not_in_profile"), "an unknown command is never sent unconfirmed");
-        assertEquals(List.of("where", "inventory"), engine.menuCommands().stream().map(c -> c.id()).toList());
+        assertEquals(List.of("where", "inventory", "seen"), engine.menuCommands().stream().map(c -> c.id()).toList());
         assertEquals("Strike", engine.label("warn_add"));
         assertEquals("missing", engine.label("missing"));
     }
