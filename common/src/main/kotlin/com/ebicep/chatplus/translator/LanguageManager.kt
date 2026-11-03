@@ -48,6 +48,24 @@ object LanguageManager {
         return null
     }
 
+    /**
+     * Google's own codes for some languages differ from lang.json (Hebrew is "iw" and Javanese "jw" on Google
+     * Translate), and it can detect languages the list does not have at all. Before, any of those left the source
+     * language null and the translation was dropped without a word, which is one reason Ctrl+click sometimes did
+     * nothing. The Chinese and Filipino entries are there in case Google reports those the same way.
+     */
+    private val googleAliases = mapOf(
+        "iw" to "he",
+        "jw" to "jv",
+        "zh" to "zh-CN",
+        "zh-Hans" to "zh-CN",
+        "zh-Hant" to "zh-TW",
+        "fil" to "tl",
+    )
+
+    fun findDetectedLanguage(googleCode: String): Language =
+        findLanguageFromGoogle(googleAliases[googleCode] ?: googleCode) ?: Language(googleCode, googleCode, googleCode)
+
     fun findLanguageFromGoogle(googleCode: String): Language? {
         for (lang in languages) {
             if (lang.googleCode == googleCode) {

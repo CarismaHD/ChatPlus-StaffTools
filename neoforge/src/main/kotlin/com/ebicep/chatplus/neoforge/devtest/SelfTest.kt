@@ -11,6 +11,7 @@ import com.ebicep.chatplus.features.moderation.ModTools
 import com.ebicep.chatplus.features.moderation.ui.NameMenu
 import com.ebicep.chatplus.hud.ChatManager
 import com.ebicep.chatplus.translator.LanguageManager
+import com.ebicep.chatplus.translator.SenderPrefix
 import net.minecraft.client.Minecraft
 import net.minecraft.client.Screenshot
 import net.neoforged.neoforge.client.event.RenderFrameEvent
@@ -312,16 +313,20 @@ object SelfTest {
         }
         step(5) {
             val english = LanguageManager.findLanguageFromName("English")!!
-            val spanish = tabLines().first { it.guiMessage.content.string.contains("Hola amigo") }
-            TranslateMessage.ClickTranslator(listOf(spanish), "Hola amigo. ¿Cómo estás? Me gusta este servidor.", english).start()
-            val french = tabLines().filter { it.guiMessage.content.string.contains("Jean") }
-            TranslateMessage.ClickTranslator(french, french.joinToString("§") { it.guiMessage.content.string }, english).start()
+            // The same split a Ctrl+click makes: the sender stays as it is and only the message goes to Google.
+            fun translate(lines: List<ChatTab.ChatPlusGuiMessage>) {
+                val parts = lines.map { SenderPrefix.split(it.guiMessage.content.string) }
+                TranslateMessage.ClickTranslator(lines, parts.map { it.first }, parts.map { it.second }, english).start()
+            }
+            translate(listOf(tabLines().first { it.guiMessage.content.string.contains("Hola amigo") }))
+            translate(tabLines().filter { it.guiMessage.content.string.contains("Jean") })
         }
         step(100) {
             val texts = tabLines().map { it.guiMessage.content.string }
             val spanish = texts.firstOrNull { it.contains("(Spanish)") }
             check("Spanish line translated", spanish != null, spanish ?: texts.takeLast(3).toString())
             check("translation has no double spaces", spanish != null && !spanish.contains("  "), spanish ?: "")
+            check("translation keeps the sender in front", spanish?.startsWith("Member | Carlos » ") == true, spanish ?: "")
             val french = texts.filter { it.contains("(French)") }
             check("two selected French lines give two translations", french.size == 2, french.toString())
             shot("translated")

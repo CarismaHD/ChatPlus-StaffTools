@@ -24,6 +24,7 @@ import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.HoverEvent
+import java.util.Optional
 
 
 object TranslateMessage {
@@ -94,7 +95,9 @@ object TranslateMessage {
                 return@register
             }
             if (languageSpeakEnabled) {
-                it.returnFunction = inputTranslatePrefix != null &&
+                // Keeps a click another handler already used, such as a Ctrl+click translation. Overwriting it let the
+                // clicked text's own action (a link, a command) run as well.
+                it.returnFunction = it.returnFunction || inputTranslatePrefix != null &&
                         inputTranslatePrefix!!.isFocused &&
                         inputTranslatePrefix!!.mouseClicked(it.mouseX, it.mouseY, it.button)
             }
@@ -173,7 +176,10 @@ object TranslateMessage {
             }
             TranslateSpeakTextBarElement.toggleTranslateSpeak(it.screen)
         }
-        var translateClickCooldown = 0L
+        // Guards against a double click sending the same request twice. It used to be a flat 2 seconds for any message,
+        // so a second Ctrl+click on another line soon after did nothing at all.
+        var lastClickTime = 0L
+        var lastClickMessage: Any? = null
         EventBus.register<ChatScreenMouseClickedEvent>({ 100 }) {
             if (!values.translatorEnabled || !values.translateClickEnabled) {
                 return@register
@@ -181,29 +187,68 @@ object TranslateMessage {
             if (it.button != 0 || !Screen.hasControlDown()) {
                 return@register
             }
-            if (System.currentTimeMillis() - translateClickCooldown < 2_000) {
+            val message = ChatManager.globalSelectedTab.getHoveredOverMessageLine(it.mouseX, it.mouseY) ?: return@register
+            // From here the click is a translate click, so it is used even when it cannot translate. Otherwise the
+            // clicked text's own action, such as a link or a /msg suggestion on a name, ran instead.
+            it.returnFunction = true
+            val now = System.currentTimeMillis()
+            if (message.linkedMessage == lastClickMessage && now - lastClickTime < 1_500) {
                 return@register
             }
-            ChatManager.globalSelectedTab.getHoveredOverMessageLine(it.mouseX, it.mouseY)?.let { message ->
-                translateClickCooldown = System.currentTimeMillis()
-                // selected message compatibility, sends one translate request with all selected messages split by § then sends the
-                // translated messages unsplit
-                val selectedMessages = SelectChat.getAllSelectedMessages()
-                val messages: List<ChatTab.ChatPlusGuiMessage> = if (selectedMessages.contains(message)) {
-                    SelectChat.getSelectedMessagesOrdered().map { it.linkedMessage }
-                } else {
-                    listOf(message.linkedMessage)
-                }
-                LanguageManager.languageTo?.let { to ->
-                    it.returnFunction = true
-                    ClickTranslator(
-                        messages,
-                        messages.joinToString(TranslationSplit.SEPARATOR) { ChatFormatting.stripFormatting(it.guiMessage.content.string)!! },
-                        to
-                    ).start()
+            if (now - lastClickTime < 300) {
+                return@register
+            }
+            val to = LanguageManager.languageTo ?: run {
+                ChatPlus.sendMessage(
+                    Component.literal("ChatPlus: choose a \"Translate To\" language in the translator settings first")
+                        .withStyle(ChatFormatting.RED)
+                )
+                return@register
+            }
+            lastClickTime = now
+            lastClickMessage = message.linkedMessage
+            // Selected messages are translated in one request, one per line, then split back per message.
+            val selectedMessages = SelectChat.getAllSelectedMessages()
+            val messages: List<ChatTab.ChatPlusGuiMessage> = if (selectedMessages.contains(message)) {
+                SelectChat.getSelectedMessagesOrdered().map { it.linkedMessage }.distinct()
+            } else {
+                listOf(message.linkedMessage)
+            }
+            val userPatterns = values.translatorRegexes.map { it.pattern }
+            // Messages with nothing to translate (only a name, numbers or emoticons) are left out, so the rest still
+            // line up with their translations.
+            val parts = messages
+                .map { msg -> msg to SenderPrefix.split(messageText(msg.guiMessage.content), userPatterns) }
+                .filter { (_, split) -> split.second.any { c -> c.isLetter() } }
+            if (parts.isEmpty()) {
+                ChatPlus.sendMessage(ComponentUtil.literal("ChatPlus: nothing to translate in that message", ChatFormatting.RED))
+                return@register
+            }
+            ClickTranslator(parts.map { it.first }, parts.map { it.second.first }, parts.map { it.second.second }, to).start()
+        }
+    }
+
+    /**
+     * A chat message's text without the timestamp and repeat counter ChatPlus may add to it, so neither is sent to Google
+     * or mistaken for the sender's name.
+     */
+    private fun messageText(component: Component): String {
+        val text = StringBuilder()
+        fun collect(part: Component) {
+            val contents = part.contents
+            val addedByChatPlus = contents is ComponentUtil.LiteralContentsIgnored &&
+                    (contents.isType(ComponentUtil.LiteralIgnoredType.TIMESTAMP) ||
+                            contents.isType(ComponentUtil.LiteralIgnoredType.COMPACT))
+            if (!addedByChatPlus) {
+                contents.visit<Unit> { piece ->
+                    text.append(piece)
+                    Optional.empty()
                 }
             }
+            part.siblings.forEach { collect(it) }
         }
+        collect(component)
+        return ChatFormatting.stripFormatting(text.toString())!!.replace("\n", " ")
     }
 
     private fun isTranslateMessage(component: Component): Boolean {
@@ -225,25 +270,41 @@ object TranslateMessage {
         }
     }
 
-    class ClickTranslator(val line: List<ChatTab.ChatPlusGuiMessage>, message: String, to: Language) :
-        Translator(message, null, to, false) {
+    class ClickTranslator(
+        val line: List<ChatTab.ChatPlusGuiMessage>,
+        private val prefixes: List<String>,
+        bodies: List<String>,
+        to: Language
+    ) : Translator(bodies.joinToString(TranslationSplit.SEPARATOR), null, to, false) {
+
+        private fun originals(): Component {
+            val component = Component.literal("")
+            line.forEachIndexed { index, it ->
+                component.append(it.guiMessage.content)
+                if (index != line.size - 1) {
+                    component.append(Component.literal("\n"))
+                }
+            }
+            return component
+        }
 
         override fun onTranslateSameMessage() {
             // Runs on the translation thread. Chat may only be changed from the client thread.
             Minecraft.getInstance().execute {
-                val component = Component.literal("")
-                line.forEachIndexed { index, it ->
-                    component.append(it.guiMessage.content)
-                    if (index != line.size - 1) {
-                        component.append(Component.literal("\n"))
-                    }
-                }
                 ChatPlus.sendMessage(
                     ComponentUtil.translatable(
                         "chatPlus.translator.sameMessage",
                         ChatFormatting.RED,
-                        HoverEvent(HoverEvent.Action.SHOW_TEXT, component)
+                        HoverEvent(HoverEvent.Action.SHOW_TEXT, originals())
                     )
+                )
+            }
+        }
+
+        override fun onTranslateFailed(reason: String) {
+            Minecraft.getInstance().execute {
+                ChatPlus.sendMessage(
+                    ComponentUtil.literal("ChatPlus: $reason", ChatFormatting.RED, HoverEvent(HoverEvent.Action.SHOW_TEXT, originals()))
                 )
             }
         }
@@ -251,24 +312,18 @@ object TranslateMessage {
         override fun onTranslate(matchedRegex: String?, translatedMessage: TranslateResult, fromLanguage: String?) {
             val suffix = " (" + (fromLanguage ?: "Unknown") + ")"
             val pieces = TranslationSplit.split(translatedMessage.translatedText, line.size)
-            // When the pieces no longer line up with the selected lines, show the whole translation as one message,
-            // with every original line in the hover, rather than pairing text with the wrong line.
-            val messages: List<Pair<String, Component>> = if (pieces != null) {
-                pieces.mapIndexed { index, piece -> piece to line[index].guiMessage.content.copy() }
-            } else {
-                val all = Component.literal("")
-                line.forEachIndexed { index, it ->
-                    all.append(it.guiMessage.content)
-                    if (index != line.size - 1) {
-                        all.append(Component.literal("\n"))
-                    }
-                }
-                listOf(translatedMessage.translatedText.replace(TranslationSplit.SEPARATOR, " ").trim() to all)
-            }
+            // Everything that reads the chat messages runs on the client thread, like the change to chat itself.
             Minecraft.getInstance().execute {
+                // When the pieces no longer line up with the selected lines, show the whole translation as one message,
+                // with every original line in the hover, rather than pairing text with the wrong line.
+                val messages: List<Pair<String, Component>> = if (pieces != null) {
+                    pieces.mapIndexed { index, piece -> prefixes[index] + piece to line[index].guiMessage.content.copy() }
+                } else {
+                    listOf(translatedMessage.translatedText.replace(TranslationSplit.SEPARATOR, " / ").trim() to originals())
+                }
                 messages.forEach { (text, original) ->
                     val component = ComponentUtil.literal(
-                        (matchedRegex ?: "") + text + suffix,
+                        text + suffix,
                         ChatFormatting.GREEN,
                         HoverEvent(HoverEvent.Action.SHOW_TEXT, original)
                     )

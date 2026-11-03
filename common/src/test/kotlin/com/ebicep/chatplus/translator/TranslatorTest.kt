@@ -18,19 +18,50 @@ class TranslatorTest {
     }
 
     @Test
-    fun singleSegmentAndSeparatorSurvive() {
-        val response = """[[["Hello everyone§I'm tired§Thank you very much","Bonjour tout le monde§Je suis fatigué§Merci beaucoup",null,null,3]],null,"fr",null,null,null,1,[],[["fr"],null,[1],["fr"]]]"""
+    fun newlineSeparatedLinesSurvive() {
+        val response = """[[["Hello everyone\n","Bonjour tout le monde\n",null,null,3],["I'm tired\n","Je suis fatigué\n",null,null,3],["Thank you very much","Merci beaucoup",null,null,3]],null,"fr",null,null,null,1,[],[["fr"],null,[1],["fr"]]]"""
         val result = GoogleRequester.parseResponse(response, english)
-        assertEquals("Hello everyone§I'm tired§Thank you very much", result.message)
+        assertEquals("Hello everyone\nI'm tired\nThank you very much", result.message)
         assertEquals("French", result.from?.name)
     }
 
     @Test
-    fun unknownDetectedLanguageDoesNotThrow() {
+    fun unknownDetectedLanguageStillTranslates() {
         val response = """[[["Hi","Hi",null,null,1]],null,"zz-unknown"]"""
         val result = GoogleRequester.parseResponse(response, english)
         assertEquals("Hi", result.message)
-        assertNull(result.from)
+        assertEquals("zz-unknown", result.from?.name)
+    }
+
+    @Test
+    fun oldGoogleCodesMapToListedLanguages() {
+        assertEquals("he", LanguageManager.findDetectedLanguage("iw").googleCode)
+        assertEquals("jv", LanguageManager.findDetectedLanguage("jw").googleCode)
+        assertEquals("zh-CN", LanguageManager.findDetectedLanguage("zh").googleCode)
+    }
+
+    @Test
+    fun senderPrefixIsKeptOutOfTheTranslation() {
+        assertEquals("[Admin] Steve: " to "hola a todos", SenderPrefix.split("[Admin] Steve: hola a todos"))
+        assertEquals("<Steve> " to "bonjour", SenderPrefix.split("<Steve> bonjour"))
+        assertEquals("[VIP] [Lv 5] Alex » " to "wie geht's", SenderPrefix.split("[VIP] [Lv 5] Alex » wie geht's"))
+        assertEquals("Steve -> me: " to "salut", SenderPrefix.split("Steve -> me: salut"))
+        assertEquals("Global | Bob: " to "ciao", SenderPrefix.split("Global | Bob: ciao"))
+        assertEquals("" to "hola amigos como estan", SenderPrefix.split("hola amigos como estan"))
+    }
+
+    @Test
+    fun ordinarySentencesKeepTheirFirstWords() {
+        assertEquals("" to "Mira esto: un creeper", SenderPrefix.split("Mira esto: un creeper"))
+        assertEquals("Steve: " to "mira: un creeper", SenderPrefix.split("Steve: mira: un creeper"))
+        assertEquals("Steve: " to ":)", SenderPrefix.split("Steve: :)"), "the name is never sent, even with nothing after it")
+    }
+
+    @Test
+    fun translatorRegexesAreTriedFirst() {
+        assertEquals("Global Bob ~ " to "ciao", SenderPrefix.split("Global Bob ~ ciao", listOf("^Global \\w+ ~ ")))
+        assertEquals("" to "ciao", SenderPrefix.split("ciao", listOf("(?s).*")), "a regex matching the whole line is not a prefix")
+        assertEquals("Bob: " to "ciao", SenderPrefix.split("Bob: ciao", listOf("[")), "a broken regex is skipped")
     }
 
     @Test
@@ -41,9 +72,10 @@ class TranslatorTest {
 
     @Test
     fun selectedLinesSplitBackOnlyWhenCountsMatch() {
-        assertEquals(listOf("one", "two", "three"), TranslationSplit.split("one § two§three", 3))
+        assertEquals(listOf("one", "two", "three"), TranslationSplit.split("one \n two\nthree", 3))
+        assertEquals(listOf("one", "two"), TranslationSplit.split("one\ntwo\n", 2))
         assertNull(TranslationSplit.split("one two three", 3), "a lost separator must not shift lines")
-        assertNull(TranslationSplit.split("a§b§c§d", 3), "an extra separator must not shift lines")
+        assertNull(TranslationSplit.split("a\nb\nc\nd", 3), "an extra separator must not shift lines")
         assertEquals(listOf("only"), TranslationSplit.split("only", 1))
     }
 }

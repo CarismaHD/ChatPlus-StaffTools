@@ -18,8 +18,18 @@ class GoogleRequester {
         private const val READ_TIMEOUT_MS = 10_000
         private const val USER_AGENT = "Mozilla/5.0 (ChatPlus)"
 
+        private const val RATE_LIMIT_PAUSE_MS = 5 * 60_000L
+        private const val ERROR_PAUSE_MS = 30_000L
+
         @Volatile
-        var accessDenied = false
+        private var pausedUntil = 0L
+
+        /** True while translation is paused after Google refused or failed a request. */
+        val accessDenied: Boolean
+            get() = System.currentTimeMillis() < pausedUntil
+
+        val pauseSecondsLeft: Long
+            get() = ((pausedUntil - System.currentTimeMillis()).coerceAtLeast(0) + 999) / 1000
 
         /**
          * Reads Google's response. Each sentence piece already carries its own trailing space, so pieces are joined
@@ -29,7 +39,7 @@ class GoogleRequester {
             val gson: Gson = GsonBuilder().setLenient().create()
             val json: JsonArray = gson.fromJson(entity, JsonArray::class.java)
             val detectedCode = json.get(2).takeIf { it.isJsonPrimitive }?.asString
-            val detectedSource = detectedCode?.let { LanguageManager.findLanguageFromGoogle(it) }
+            val detectedSource = detectedCode?.takeIf { it.isNotBlank() }?.let { LanguageManager.findDetectedLanguage(it) }
             val translatedText = json[0].asJsonArray
                 .filter { it.isJsonArray && it.asJsonArray.size() > 0 && it.asJsonArray[0].isJsonPrimitive }
                 .joinToString("") { it.asJsonArray[0].asString }
@@ -48,6 +58,8 @@ class GoogleRequester {
             "sl" to from.googleCode,
             "tl" to to.googleCode,
             "dt" to "t",
+            "ie" to "UTF-8",
+            "oe" to "UTF-8",
             "q" to encodedMessage
         )
 
@@ -58,6 +70,9 @@ class GoogleRequester {
             when (response.responseCode) {
                 200 -> processSuccessfulResponse(response, to)
                 429 -> handleAccessDenied()
+                // No answer from Google at all (offline, timeout). That says nothing about Google, so nothing is paused.
+                // Before, it was handled as a Google error and paused translation.
+                1 -> RequestResult(1, response.entity, null, null)
                 else -> handleApiError(response)
             }
         } catch (e: Exception) {
@@ -84,23 +99,20 @@ class GoogleRequester {
     }
 
     private fun handleAccessDenied(): RequestResult {
-        pause()
+        pause(RATE_LIMIT_PAUSE_MS)
         return RequestResult(429, "Access to Google Translate denied", null, null)
     }
 
-    /** Any other error pauses translation too, but only for a while. Before, it stopped translation until a restart. */
+    /** Any other error pauses translation for a short while only. A 429 (rate limit) pauses for five minutes. */
     private fun handleApiError(response: Response): RequestResult {
-        pause()
+        pause(ERROR_PAUSE_MS)
         ChatPlus.LOGGER.error(response.entity)
         return RequestResult(411, "API call error", null, null)
     }
 
-    private fun pause() {
+    private fun pause(durationMs: Long) {
         synchronized(GoogleRequester::class.java) {
-            if (!accessDenied) {
-                accessDenied = true
-                Timeout().start()
-            }
+            pausedUntil = maxOf(pausedUntil, System.currentTimeMillis() + durationMs)
         }
     }
 
@@ -142,29 +154,16 @@ class GoogleRequester {
     }
 
     private fun readResponseBody(connection: HttpsURLConnection): String {
-        val inputStream = if (connection.responseCode == HttpsURLConnection.HTTP_OK)
+        val inputStream: java.io.InputStream? = if (connection.responseCode == HttpsURLConnection.HTTP_OK)
             connection.inputStream
         else
             connection.errorStream
-
-        return inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+        // An error reply can come without a body, and then errorStream is null. That used to throw, so a 429 was
+        // handled as a connection problem instead of a rate limit.
+        return inputStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
     }
 }
 
 data class RequestResult(val code: Int, val message: String, val from: Language?, val to: Language?)
 
 data class Response(val responseCode: Int, val entity: String)
-
-class Timeout : Thread("ChatPlus-TranslatePause") {
-    init {
-        isDaemon = true
-    }
-
-    override fun run() {
-        try {
-            sleep(300000)
-            GoogleRequester.accessDenied = false
-        } catch (ignored: InterruptedException) {
-        }
-    }
-}

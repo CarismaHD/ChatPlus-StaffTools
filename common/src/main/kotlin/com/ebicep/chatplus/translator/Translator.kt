@@ -19,7 +19,8 @@ open class Translator(val message: String, val from: Language?, val to: Language
             return
         }
         val translatedMessage = translate(textToTranslate) ?: run {
-            ChatPlus.LOGGER.debug("Translation failed for: $textToTranslate")
+            ChatPlus.LOGGER.debug("Translation failed for: $textToTranslate ($failureReason)")
+            failureReason?.let { onTranslateFailed(it) }
             return
         }
         if (translatedMessage.translatedText.trim().equals(textToTranslate, ignoreCase = true)) {
@@ -48,6 +49,18 @@ open class Translator(val message: String, val from: Language?, val to: Language
 
     }
 
+    /**
+     * Why the last [translate] call failed, in words a player can act on. Null when it succeeded, or when there was
+     * nothing to translate (blank text, or the same language on both sides).
+     */
+    var failureReason: String? = null
+        private set
+
+    /** Called when Google could not be used. Automatic translation stays quiet; a Ctrl+click reports it. */
+    open fun onTranslateFailed(reason: String) {
+
+    }
+
     open fun onTranslate(matchedRegex: String?, translatedMessage: TranslateResult, fromLanguage: String?) {
         // This runs on the translation thread. Chat may only be changed from the client thread.
         Minecraft.getInstance().execute {
@@ -61,6 +74,7 @@ open class Translator(val message: String, val from: Language?, val to: Language
     }
 
     fun translate(text: String): TranslateResult? {
+        failureReason = null
         if (from == to) {
             return null
         }
@@ -68,6 +82,7 @@ open class Translator(val message: String, val from: Language?, val to: Language
             return null
         }
         if (GoogleRequester.accessDenied) {
+            failureReason = "Translation is paused after a Google error, try again in ${GoogleRequester.pauseSecondsLeft}s"
             return null
         }
         //Use free ones later
@@ -75,11 +90,16 @@ open class Translator(val message: String, val from: Language?, val to: Language
         val transRequest: RequestResult = if (from == null) google.translateAuto(text, to) else google.performTranslationRequest(text, from, to)
         if (transRequest.code != 200) {
             logException(transRequest)
+            failureReason = when (transRequest.code) {
+                1 -> "Could not reach Google Translate"
+                429 -> "Google is rate limiting translations, paused for 5 minutes"
+                411 -> "Google Translate returned an error, paused for 30 seconds"
+                else -> "Translation failed: ${transRequest.message}"
+            }
             return null
         }
-        if (transRequest.from == null) {
-            return null
-        }
+        // The detected language is only used for the "(Language)" suffix, so an unknown one is no reason to drop
+        // the translation.
         return TranslateResult(transRequest.message.trim(), transRequest.from)
     }
 
@@ -102,16 +122,61 @@ open class Translator(val message: String, val from: Language?, val to: Language
 data class TranslateResult(val translatedText: String, val from: Language?)
 
 object TranslationSplit {
-    const val SEPARATOR = "§"
+    /**
+     * Several selected messages are sent as one request, one per line. A line break is plain text that Google keeps in
+     * its output, and each message stays a sentence of its own. The old "§" separator is Minecraft's colour-code
+     * character, which Google sometimes dropped or moved. If the lines still come back merged, [split] notices.
+     */
+    const val SEPARATOR = "\n"
 
     /**
-     * Splits a translation of several lines joined by [SEPARATOR] back into one piece per line. Returns null when the
-     * piece count no longer matches, since Google can drop or move the separator. Before, a mismatch either crashed
-     * the translation thread or paired translations with the wrong lines.
+     * Splits a translation back into one piece per message. Returns null when the piece count no longer matches,
+     * rather than pairing a translation with the wrong message.
      */
     fun split(translated: String, lineCount: Int): List<String>? {
-        val pieces = translated.split(SEPARATOR).map { it.trim() }
+        val pieces = translated.split(SEPARATOR).map { it.trim() }.let { all ->
+            // A trailing newline from Google adds an empty last piece.
+            if (all.size == lineCount + 1 && all.last().isEmpty()) all.dropLast(1) else all
+        }
         return if (pieces.size == lineCount) pieces else null
+    }
+}
+
+/**
+ * Splits a chat line into the sender part ("[Admin] Steve: ", "<Steve> ", "Steve » ") and the message. Only the
+ * message is sent to Google: rank tags and player names are not words in any language, so translating them mangled
+ * names and pushed language detection the wrong way, which made short messages come back wrong.
+ */
+object SenderPrefix {
+    /**
+     * Bracketed tags, then "<name>" or one word followed by ":", "»", ">", "|" or "->". Only one word before the
+     * separator: allowing two also caught ordinary sentences such as "Look here: ...", which then stayed untranslated.
+     * A server format this misses can be covered with a translator regex, which is tried first.
+     */
+    private val PREFIX = Regex(
+        """^(?:\[[^\]]{1,32}]\s*)*(?:<[^>]{1,40}>|[^\s:»>|]{1,32}\s*(?:[:»>|]|->))\s+"""
+    )
+
+    /** Returns the prefix (kept as it was) and the text to translate. The prefix is empty when none is found. */
+    fun split(line: String, userPatterns: List<String> = emptyList()): Pair<String, String> {
+        for (pattern in userPatterns) {
+            if (pattern.isEmpty()) continue
+            val match = runCatching { Regex(pattern).find(line) }.getOrNull() ?: continue
+            if (match.range.first == 0 && match.value.isNotEmpty() && match.range.last < line.length - 1) {
+                return match.value to line.substring(match.range.last + 1).trim()
+            }
+        }
+        val first = PREFIX.find(line) ?: return "" to line
+        var prefixEnd = first.range.last + 1
+        // "Steve -> me: hi" and "Global | Bob: hi" have two parts before the message. Only those separators get a
+        // second round, so a colon inside the message itself is left alone.
+        val separator = first.value.trimEnd()
+        if (separator.endsWith("->") || separator.endsWith("|")) {
+            PREFIX.find(line.substring(prefixEnd))?.let { prefixEnd += it.range.last + 1 }
+        }
+        // The message can be left with nothing to translate ("Steve: :)"). The caller checks that, rather than this
+        // sending the name to Google.
+        return line.substring(0, prefixEnd) to line.substring(prefixEnd).trim()
     }
 }
 

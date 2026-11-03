@@ -201,7 +201,8 @@ object MovableChat {
                     }
                 }
             }
-            it.returnFunction = movingChat || movingInputBox
+            // Keeps a click an earlier handler already used, such as a Ctrl+click translation.
+            it.returnFunction = it.returnFunction || movingChat || movingInputBox
         }
         EventBus.register<ChatTabClickedEvent> {
             if (!Config.values.movableChatEnabled) {
