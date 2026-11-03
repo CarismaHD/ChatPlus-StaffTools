@@ -152,6 +152,11 @@ object TranslateMessage {
             if (!languageSpeakEnabled) {
                 return@register
             }
+            // Commands are sent as typed. Translating them turned "/home" into Google's translation of it, and since
+            // speak mode stays on after chat closes, that easily happened by accident.
+            if (it.normalizeChatMessage.startsWith("/")) {
+                return@register
+            }
             it.dontSendMessage = true
             SelfTranslator(it.normalizeChatMessage, if (inputTranslatePrefix == null) "" else inputTranslatePrefix!!.value).start()
         }
