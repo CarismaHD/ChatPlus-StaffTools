@@ -102,6 +102,8 @@ val prepareSelfTest by tasks.registering {
         val runDir = file("run-selftest")
         project.findProperty("stafftools.chatConfig")?.let { source ->
             val src = file(source.toString())
+            // A missing file would otherwise be skipped silently, and the test would run with a blank config.
+            require(src.isFile) { "stafftools.chatConfig: no file at $src" }
             copy { from(src); into(runDir.resolve("config/chatplus")) }
         }
         val scale = project.findProperty("stafftools.guiScale")?.toString() ?: "3"

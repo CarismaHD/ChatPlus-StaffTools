@@ -19,21 +19,29 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 - Server profiles: all server-specific behaviour comes from `config/chatplus/moderation/profile.json`. The bundled profile is empty, so without one the mod behaves exactly like ChatPlus.
 
 **Fixed**
-- Translate: no more double spaces between translated sentences.
-- Translate: when several lines are selected, each translation now goes with the right line. If the pieces don't line up, it shows one combined translation instead of pairing text with the wrong line.
-- Translate: translated text is added to chat on the game thread, not the network thread.
-- Translate: an API error pauses translation for 5 minutes instead of for the rest of the session.
-- Translate: requests time out instead of hanging, and auto-translate is skipped when no translate regex is set.
+- Translate, Ctrl+click:
+  - Only the message is sent to Google. The sender's name and rank tags, ChatPlus's timestamps and repeat counters stay out, and the name is put back in front of the translation.
+  - Works when Google reports a language code the mod didn't know, and right after translating another message.
+  - Says why it couldn't translate (paused, can't reach Google, Google error, nothing to translate) instead of doing nothing.
+  - No longer also opens the clicked link or fills in its command.
+  - A message wrapped over several lines is translated once. Several selected messages each get their own translation, or one combined translation if Google's reply doesn't line up.
+  - No more double spaces between sentences.
+- Translate, errors: a Google error pauses translation for 30 seconds, and rate limiting for 5 minutes. Having no connection pauses nothing. Requests time out instead of hanging.
+- Translate: "Translate To: Auto Detect", the default, means your Minecraft language instead of sending "auto" to Google.
+- Translate, speak mode (Ctrl+T): commands are sent as typed, a command prefix such as `/msg Steve` keeps its space, and a message that can't be translated is kept instead of lost.
+- Translate: translated text is added to chat on the game thread, and auto-translate is skipped when no translate regex is set.
+- Staff tools: a lookup reply that shows the player under another name still fills the lookup screen, and lookups are forgotten when you change server.
 - Settings screen: uses upstream's later fix for opening the settings from the NeoForge 21.1 mod list (from ChatPlus commit `0740a1d`).
 - Three later ChatPlus bug fixes, taken unchanged from ChatPlus 2.8.0:
   - A memory leak in the chat bar's elements, which grew the longer you played (`fa227b3`).
   - A crash guard when a chat line is missing while drawing chat (`4186d57`).
   - Copying a message with its formatting works again (`63c3636`).
+- From ChatPlus 2.10.0: an error in one chat feature no longer stops the others from running (`71084fa`).
 
 **Build**
 - NeoForge only. The Fabric build is turned off.
 - Built against Minecraft 1.21.1, NeoForge 21.1.265 and Architectury 13.0.11 (ChatPlus 2.7.0 used Minecraft 1.21, NeoForge 21.0 and Architectury 13.0.1).
-- Renamed to ChatPlus Staff Tools, version `2.7.0-st.1`, jar `chatplus-stafftools-neoforge-<version>.jar`. The mod ID stays `chatplus`, and the settings file stays `chatplus-v2.7.0.json`.
+- Renamed to ChatPlus Staff Tools, version `2.7.0-st.2`, jar `chatplus-stafftools-neoforge-<version>.jar`. The mod ID stays `chatplus`, and the settings file stays `chatplus-v2.7.0.json`.
 - Issues link to this repository instead of upstream.
 - New: unit tests for the staff tools and translate parsing, an offline self-test client (`runSelfTest`), and a release check for private terms (`tools/check-private-terms.py`).
 
@@ -46,7 +54,7 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 | Confirm screen | Anything that changes something opens a screen showing the exact command that will be sent, with Cancel and Send. Send can't be clicked for the first half second, so a double-click never sends by accident. |
 | `/mt` | `/mt <player>` opens a lookup, `/mt reload` reloads the profile, and `/mt` alone says whether the tools are active. `/modtools` works too. |
 | Settings | ChatPlus settings has a Moderation section: an on/off switch, the delay between commands, and how long to wait for a lookup reply. |
-| Translate fixes | No double spaces, selected lines always get the right translation, translations are added on the game thread, an API error pauses translate for 5 minutes instead of for the session, and requests time out instead of hanging. |
+| Translate fixes | Ctrl+click translates only the message and keeps the sender's name in front, says why when it can't translate, and doesn't also open links. Short pauses after Google errors, no double spaces, and "Auto Detect" means your game language. Speak mode leaves commands alone. |
 
 Everything else is ChatPlus 2.7.0 as released.
 
