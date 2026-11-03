@@ -10,6 +10,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -116,7 +117,7 @@ final class LookupScreen extends Screen {
         }
         boolean canRemove = ModTools.engine().hasCommand(removeTemplate);
         for (LookupResult.Entry e : entries) {
-            String head = "#" + e.id() + (e.status() != null ? "  " + e.status().toLowerCase() : "") + "  " + e.timestamp() + "  by " + e.staff();
+            String head = "#" + e.id() + (e.status() != null ? "  " + e.status().toLowerCase(Locale.ROOT) : "") + "  " + e.timestamp() + "  by " + e.staff();
             List<FormattedCharSequence> lines = new ArrayList<>(font.split(Component.literal(head).withStyle(ChatFormatting.GRAY), listW - 60));
             lines.addAll(font.split(Component.literal(e.text()), listW - 8));
             Button remove = null;

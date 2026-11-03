@@ -75,10 +75,15 @@ public final class Engine {
 
     // ---- Server ----
 
-    /** Sets the address of the current server, or null when disconnected. A change drops anything still queued. */
+    /**
+     * Sets the address of the current server, or null when disconnected. A change drops anything still queued, and the
+     * lookups kept from the last server, which are that server's records, not this one's.
+     */
     public void setServer(String address) {
         if (address == null || !address.equals(serverAddress)) {
             queue.clear();
+            lookups.clear();
+            lookupTimes.clear();
         }
         serverAddress = address;
     }
@@ -170,9 +175,17 @@ public final class Engine {
         boolean isLookup = "lookup".equals(t.parser());
         CommandRequest request = new CommandRequest(templateId, r.command(), isLookup ? new LookupParser(profile) : null, response -> {
             if (response.parsed() instanceof LookupResult l) {
-                String key = (l.name().isEmpty() ? values.getOrDefault("player", "") : l.name()).toLowerCase(Locale.ROOT);
-                lookups.put(key, l);
-                lookupTimes.put(key, clock.getAsLong());
+                // Kept under the name that was asked for, which is what the lookup screen asks for again. Before, only
+                // the name in the reply was used, so a reply showing a nickname left the screen empty. The reply's own
+                // name is kept as well, so /mt with a partial name still finds it.
+                long time = clock.getAsLong();
+                for (String name : List.of(values.getOrDefault("player", ""), l.name())) {
+                    String key = name.toLowerCase(Locale.ROOT);
+                    if (!key.isEmpty()) {
+                        lookups.put(key, l);
+                        lookupTimes.put(key, time);
+                    }
+                }
             }
             if (onDone != null) {
                 onDone.accept(response);

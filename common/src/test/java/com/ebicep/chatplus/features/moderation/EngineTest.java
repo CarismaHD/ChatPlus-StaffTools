@@ -161,6 +161,33 @@ class EngineTest {
     }
 
     @Test
+    void lookupIsFoundUnderTheNameAskedFor() throws Exception {
+        connected();
+        engine.submit("lookup", Map.of("player", "Alice"), null);
+        ticks(1);
+        line("-- Record: ~Ally --");
+        line("• Strikes = 1");
+        ticks(40);
+        assertEquals(1, engine.lookup("alice").warnings(), "kept under the name asked for");
+        assertEquals(1, engine.lookup("~ally").warnings(), "and under the name in the reply");
+    }
+
+    @Test
+    void lookupsDoNotCarryOverToAnotherServer() throws Exception {
+        connected();
+        engine.submit("lookup", Map.of("player", "Alice"), null);
+        ticks(1);
+        line("-- Record: Alice --");
+        ticks(40);
+        assertTrue(engine.lookup("alice") != null);
+        engine.setServer("play.example.net:25565");
+        assertTrue(engine.lookup("alice") != null, "the same server keeps them");
+        engine.setServer(null);
+        assertNull(engine.lookup("alice"));
+        assertEquals(0, engine.lookupTime("alice"));
+    }
+
+    @Test
     void reloadPicksUpANewProfileAndReportsBrokenPatterns() throws Exception {
         engine = new Engine(dir, sent::add, () -> now, LIMITS);
         engine.setServer("example.net");
