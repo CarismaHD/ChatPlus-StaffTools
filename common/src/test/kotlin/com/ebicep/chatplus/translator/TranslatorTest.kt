@@ -1,6 +1,7 @@
 package com.ebicep.chatplus.translator
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
@@ -38,6 +39,17 @@ class TranslatorTest {
         assertEquals("he", LanguageManager.findDetectedLanguage("iw").googleCode)
         assertEquals("jv", LanguageManager.findDetectedLanguage("jw").googleCode)
         assertEquals("zh-CN", LanguageManager.findDetectedLanguage("zh").googleCode)
+    }
+
+    @Test
+    fun gameLanguageMapsToGoogleCodes() {
+        assertEquals("en", LanguageManager.googleCodeForGameLanguage("en_us"))
+        assertEquals("pt", LanguageManager.googleCodeForGameLanguage("pt_BR"))
+        assertEquals("zh-CN", LanguageManager.googleCodeForGameLanguage("zh_cn"))
+        assertEquals("ar", LanguageManager.googleCodeForGameLanguage("ar_sa"))
+        listOf("en_us", "fr_fr", "de_de", "es_es", "ru_ru", "ja_jp", "zh_cn", "zh_tw", "ar_sa", "tr_tr", "he_il", "nb_no").forEach {
+            assertNotNull(LanguageManager.findLanguageFromGoogle(LanguageManager.googleCodeForGameLanguage(it)), it)
+        }
     }
 
     @Test

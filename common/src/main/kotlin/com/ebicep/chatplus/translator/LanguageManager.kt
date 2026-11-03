@@ -63,6 +63,33 @@ object LanguageManager {
         "fil" to "tl",
     )
 
+    /**
+     * The language to translate other players' chat into. "Auto Detect" is the default for Translate To, but "auto"
+     * is not a language Google can translate into: before, the mod sent it to Google as the target anyway. It now
+     * means the language the player has Minecraft set to, falling back to English.
+     */
+    fun targetLanguage(): Language? {
+        val chosen = languageTo ?: return null
+        if (chosen.googleCode != autoLang.googleCode) {
+            return chosen
+        }
+        val gameCode = runCatching { net.minecraft.client.Minecraft.getInstance().languageManager.selected }.getOrNull()
+        return gameCode?.let { findLanguageFromGoogle(googleCodeForGameLanguage(it)) } ?: findLanguageFromName("English")
+    }
+
+    /** Minecraft language codes ("en_us", "pt_br", "zh_cn") to Google codes ("en", "pt", "zh-CN"). */
+    fun googleCodeForGameLanguage(gameCode: String): String {
+        val code = gameCode.lowercase()
+        return when (code) {
+            "zh_cn" -> "zh-CN"
+            "zh_tw", "zh_hk", "lzh" -> "zh-TW"
+            "fil_ph" -> "tl"
+            "nb_no", "nn_no" -> "no"
+            "he_il" -> "he"
+            else -> code.substringBefore('_')
+        }
+    }
+
     fun findDetectedLanguage(googleCode: String): Language =
         findLanguageFromGoogle(googleAliases[googleCode] ?: googleCode) ?: Language(googleCode, googleCode, googleCode)
 

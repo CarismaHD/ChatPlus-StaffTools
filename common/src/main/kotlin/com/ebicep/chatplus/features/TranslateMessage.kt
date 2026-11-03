@@ -198,7 +198,7 @@ object TranslateMessage {
             if (now - lastClickTime < 300) {
                 return@register
             }
-            val to = LanguageManager.languageTo ?: run {
+            val to = LanguageManager.targetLanguage() ?: run {
                 ChatPlus.sendMessage(
                     Component.literal("ChatPlus: choose a \"Translate To\" language in the translator settings first")
                         .withStyle(ChatFormatting.RED)
@@ -265,7 +265,7 @@ object TranslateMessage {
         if (values.translatorRegexes.none { it.pattern.isNotEmpty() }) {
             return
         }
-        LanguageManager.languageTo?.let {
+        LanguageManager.targetLanguage()?.let {
             Translator(ChatFormatting.stripFormatting(component.string)!!, null, it).start()
         }
     }
