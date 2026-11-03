@@ -8,6 +8,16 @@ public final class Screens {
     private Screens() {
     }
 
+    /** The searchable list of everyone seen online on this server. */
+    public static Screen players(Screen parent) {
+        return new PlayerListScreen(parent);
+    }
+
+    /** For tests: where a player's row is in an open player list, or null. */
+    public static double[] playerRow(Screen screen, String name) {
+        return screen instanceof PlayerListScreen list ? list.rowCenter(name) : null;
+    }
+
     /** A player's lookup. With request true, the lookup command is sent if there is no result yet. */
     public static Screen lookup(Screen parent, String player, boolean request) {
         return new LookupScreen(parent, player, request);

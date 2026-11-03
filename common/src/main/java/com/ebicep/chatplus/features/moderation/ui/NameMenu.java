@@ -16,10 +16,10 @@ import net.minecraft.client.gui.screens.inventory.tooltip.TooltipRenderUtil;
 import net.minecraft.network.chat.Component;
 
 /**
- * The small menu for a player's name right-clicked in chat. It is drawn like a vanilla tooltip on top of the open chat
- * screen, which stays open underneath, so chat keeps its full height and tabs. It opens just above the clicked line,
- * starting at the click, so that line stays readable. The username comes from the server's own click data on the
- * name. Opening it sends nothing.
+ * The small menu for a player's name right-clicked in chat or picked in the player list. It is drawn like a vanilla
+ * tooltip on top of the open screen, which stays open underneath, so chat keeps its full height and tabs. It opens
+ * just above the clicked line, starting at the click, so that line stays readable. In chat, the username comes from
+ * the server's own click data on the name. Opening it sends nothing.
  */
 public final class NameMenu {
     private static final int ROW_H = 12;
@@ -36,7 +36,7 @@ public final class NameMenu {
     private record Entry(Component label, Runnable action) {
     }
 
-    private final Screen chat;
+    private final Screen parent;
     private final String player;
     private final List<Entry> entries = new ArrayList<>();
     private final int boxX;
@@ -44,13 +44,13 @@ public final class NameMenu {
     private final int boxW;
     private final int boxH;
 
-    private NameMenu(Screen chat, String player, double anchorX, double anchorY, int lineHeight) {
-        this.chat = chat;
+    private NameMenu(Screen parent, String player, double anchorX, double anchorY, int lineHeight) {
+        this.parent = parent;
         this.player = player;
         Minecraft mc = Minecraft.getInstance();
         Engine engine = ModTools.engine();
         if (engine.hasCommand("lookup")) {
-            entries.add(new Entry(Component.literal("Lookup"), () -> mc.setScreen(Screens.lookup(chat, player, true))));
+            entries.add(new Entry(Component.literal("Lookup"), () -> mc.setScreen(Screens.lookup(parent, player, true))));
         }
         List<String> ids = new ArrayList<>(STANDARD);
         for (CommandTemplate extra : engine.menuCommands()) {
@@ -80,9 +80,9 @@ public final class NameMenu {
         boxH = PAD + 11 + 3 + entries.size() * ROW_H + PAD - 2;
         // Just above the clicked line, starting at the click. Below the line when there is no room above. The click can
         // be anywhere in the line, so a full line height is kept clear on that side.
-        boxX = clamp((int) anchorX, MARGIN, chat.width - boxW - MARGIN);
+        boxX = clamp((int) anchorX, MARGIN, parent.width - boxW - MARGIN);
         int above = (int) anchorY - lineHeight - GAP - boxH;
-        boxY = above >= MARGIN ? above : clamp((int) anchorY + lineHeight + GAP, MARGIN, chat.height - boxH - MARGIN);
+        boxY = above >= MARGIN ? above : clamp((int) anchorY + lineHeight + GAP, MARGIN, parent.height - boxH - MARGIN);
     }
 
     private static int clamp(int value, int min, int max) {
@@ -90,11 +90,11 @@ public final class NameMenu {
     }
 
     /**
-     * Opens the menu over the given chat screen, at the clicked name, replacing any menu already open. lineHeight is the
-     * height of a chat line on screen.
+     * Opens the menu over the given screen (chat or the player list), at the clicked name, replacing any menu already
+     * open. lineHeight is the height of a line on that screen.
      */
-    public static void show(Screen chat, String player, double mouseX, double mouseY, int lineHeight) {
-        open = new NameMenu(chat, player, mouseX, mouseY, lineHeight);
+    public static void show(Screen parent, String player, double mouseX, double mouseY, int lineHeight) {
+        open = new NameMenu(parent, player, mouseX, mouseY, lineHeight);
     }
 
     /** The middle of a row of the open menu, for clicking it from a test. Row 0 is the first command. */
@@ -151,7 +151,7 @@ public final class NameMenu {
 
     private void run(Engine engine, String id, boolean opensPopup) {
         if (opensPopup) {
-            Minecraft.getInstance().setScreen(new ActionScreen(chat, id, player, Map.of()));
+            Minecraft.getInstance().setScreen(new ActionScreen(parent, id, player, Map.of()));
             return;
         }
         Engine.Submission s = engine.submit(id, ModTools.playerValues(player), null);

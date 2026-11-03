@@ -6,10 +6,10 @@ ChatPlus 2.7.0 stays as it is. Moderation is a small addition that looks like pa
 
 | Area | Decision |
 |---|---|
-| Scope | A right-click name menu, a lookup screen, and a confirm and input screen. Tabs are left to the user's own ChatPlus config. There is no separate window. |
+| Scope | A right-click name menu, a lookup screen, a confirm and input screen, a player list, and a guard against commands typed without their slash. Tabs are left to the user's own ChatPlus config. There is no separate window. |
 | Look | Only the vanilla tooltip box, buttons, edit boxes and checkbox, so nothing looks new to staff. |
 | Settings | A Moderation section in ChatPlus's own settings screen. Server details live in `config/chatplus/moderation/profile.json`. |
-| Local data | None. No logs, notes or review lists are stored. The server's records are the only source. |
+| Local data | Only the player list: username, UUID, first and last seen online, per server in the profile, in `config/chatplus/moderation/players/`. No messages, notes or logs are stored. The server's records are the only source for everything else. |
 | Portability | The core packages `core`, `command`, `parse` and `profile` use no Minecraft classes. |
 | Builds | Built against a current NeoForge 1.21.1 setup: Minecraft 1.21.1, NeoForge 21.1.265 and Architectury 13.0.11. Kotlin for Forge 5.3.0 is used for compiling and 5.12.0 for the dev client. |
 

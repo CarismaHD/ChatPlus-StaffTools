@@ -17,6 +17,7 @@
     "notesSection": "Remarks"
   },
   "silentFlag": "--quiet",
+  "slashGuard": ["guard", "/peek"],
   "commands": [
     { "id": "lookup", "label": "Record", "template": "/guard record {player}", "confirm": false, "parser": "lookup" },
     { "id": "msg", "label": "Tell", "template": "/guard tell {player} {message}", "confirm": true },
@@ -28,7 +29,9 @@
     { "id": "unban", "label": "Lift", "template": "/guard lift {player}", "confirm": true },
     { "id": "unstuck", "label": "Rescue", "template": "/guard rescue {player}", "confirm": true },
     { "id": "where", "label": "Where?", "template": "/guard where {player}", "confirm": false, "menu": true },
-    { "id": "inventory", "label": "Inventory", "template": "/peek {player}", "confirm": true, "menu": true }
+    { "id": "inventory", "label": "Inventory", "template": "/peek {player}", "confirm": true, "menu": true },
+    {"id": "chunk_owner", "label": "Chunk owner", "template": "/guard claim", "confirm": false, "parser": "lines", "reply": [".*Claimed: .+", "\\s*Owner: (?!.*'s Party)(?<team>\\S+) / (?<teamId>[0-9a-f]{8})\\S*", "\\s*Owner: .+", "\\s*Loaded: .+"]},
+    {"id": "team_info", "label": "Team", "template": "/guard team {team}#{teamId}", "confirm": false, "parser": "lines", "reply": ["== .+ ==", "Owner: .+", "Members:", "- .+"]}
   ],
   "tabs": [
     { "name": "Tickets", "pattern": "^(?:Open tickets.*|T\\d+ @\\S+ .*|Nothing open\\.)$" },

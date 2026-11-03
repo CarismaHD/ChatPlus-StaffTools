@@ -32,7 +32,7 @@ class ProfileTest {
         CompiledProfile p = TestFiles.exampleProfile();
         assertEquals(List.of(), p.errors);
         assertEquals(2, p.tabs.size());
-        assertEquals(11, p.commands.size());
+        assertEquals(13, p.commands.size());
     }
 
     @Test
@@ -97,5 +97,14 @@ class ProfileTest {
         try (var s = Files.list(dir)) {
             assertTrue(s.anyMatch(f -> f.getFileName().toString().startsWith("profile.json.broken-")));
         }
+    }
+
+    @Test
+    void slashGuardWordsAreSingleLowercaseWordsWithoutSlash() {
+        assertEquals(List.of("guard", "peek"), TestFiles.exampleProfile().slashGuard);
+        ServerProfile p = new Gson().fromJson("{\"slashGuard\": [\"STAFF\", \"two words\", \"\"]}", ServerProfile.class);
+        CompiledProfile c = CompiledProfile.compile(p);
+        assertEquals(List.of("staff"), c.slashGuard);
+        assertTrue(c.errors.stream().anyMatch(e -> e.contains("two words")), c.errors.toString());
     }
 }

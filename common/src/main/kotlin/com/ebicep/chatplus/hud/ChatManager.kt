@@ -9,6 +9,7 @@ import com.ebicep.chatplus.features.chattabs.ChatTab
 import com.ebicep.chatplus.features.chattabs.ChatTabs.createDefaultTab
 import com.ebicep.chatplus.features.chatwindows.ChatWindow
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.ChatScreen
 
 const val MIN_HEIGHT = 8
@@ -68,6 +69,15 @@ object ChatManager {
 
     fun isChatFocused(): Boolean {
         return Minecraft.getInstance().screen is ChatScreen
+    }
+
+    /**
+     * True while typing in a text box on a screen other than chat, such as a search box or a form. Keys pressed there
+     * are text, not chat shortcuts, even when chat itself is closed.
+     */
+    fun isTypingElsewhere(): Boolean {
+        val screen = Minecraft.getInstance().screen ?: return false
+        return screen !is ChatScreen && screen.focused is EditBox
     }
 
     fun rescaleAll() {

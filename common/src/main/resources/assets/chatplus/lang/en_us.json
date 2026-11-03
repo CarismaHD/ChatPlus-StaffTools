@@ -597,5 +597,10 @@ Only works on servers listed in the server profile. Nothing is sent without your
   "chatPlus.moderation.commandDelay.tooltip": "Minimum time between commands the moderation tools send, so they never trip the server's spam limits.",
   "chatPlus.moderation.lookupWait": "Lookup Wait (ms)",
   "chatPlus.moderation.lookupWait.tooltip": "How long to wait for the server's reply to a lookup.",
-  "chatPlus.moderation.profile": "Server profile: %s. Use /mt reload after editing it."
+  "chatPlus.moderation.profile": "Server profile: %s. Use /mt reload after editing it.",
+  "chatPlus.moderation.slashGuard": "Hold Back Commands Without /",
+  "chatPlus.moderation.slashGuard.tooltip": "Holds back a chat message that looks like a command typed without its /, such as \"staff ban Steve 1d\", so it isn't posted in public chat.
+ 
+Press Enter again to send it as chat anyway.",
+  "chatPlus.moderation.playerList.tooltip": "Player list"
 }

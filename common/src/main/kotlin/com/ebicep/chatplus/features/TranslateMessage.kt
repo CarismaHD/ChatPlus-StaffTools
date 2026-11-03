@@ -166,7 +166,7 @@ object TranslateMessage {
             }
         }
         ClientRawInputEvent.KEY_PRESSED.register { _, keyCode, _, _, modifiers ->
-            if (ChatManager.isChatFocused()) {
+            if (ChatManager.isChatFocused() || ChatManager.isTypingElsewhere()) {
                 return@register EventResult.pass()
             }
             if (keyCode != values.translateKey.key.value || modifiers != values.translateKey.modifier.toInt()) {

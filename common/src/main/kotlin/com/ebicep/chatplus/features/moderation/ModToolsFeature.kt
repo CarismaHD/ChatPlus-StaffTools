@@ -2,6 +2,7 @@ package com.ebicep.chatplus.features.moderation
 
 import com.ebicep.chatplus.events.EventBus
 import com.ebicep.chatplus.features.moderation.ui.NameMenu
+import com.ebicep.chatplus.features.textbarelements.AddTextBarElementEvent
 import com.ebicep.chatplus.hud.ChatManager
 import com.ebicep.chatplus.hud.ChatScreenCloseEvent
 import com.ebicep.chatplus.hud.ChatScreenKeyPressedEvent
@@ -54,13 +55,24 @@ object ModToolsFeature {
                 it.returnFunction = true
             }
         }
-        // Escape closes only the menu, not chat.
+        // Escape closes only the menu, not chat. Enter on what looks like a command typed without its slash is held
+        // back, and chat stays open with the text.
         var usedKey = false
         EventBus.register<ChatScreenKeyPressedEvent>({ 1000 }, { usedKey }) {
-            usedKey = NameMenu.isOpen() && it.keyCode == GLFW.GLFW_KEY_ESCAPE
-            if (usedKey) {
+            usedKey = false
+            if (NameMenu.isOpen() && it.keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 NameMenu.close()
+                usedKey = true
+            } else if ((it.keyCode == GLFW.GLFW_KEY_ENTER || it.keyCode == GLFW.GLFW_KEY_KP_ENTER) && ModTools.holdBackMessage(it.screen)) {
+                usedKey = true
+            }
+            if (usedKey) {
                 it.returnFunction = true
+            }
+        }
+        EventBus.register<AddTextBarElementEvent>({ 25 }) {
+            if (ModTools.active()) {
+                it.elements.add(PlayerListTextBarElement(it.screen))
             }
         }
         // Scrolling moves the lines, so the menu would no longer point at the clicked name.

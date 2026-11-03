@@ -9,12 +9,16 @@ import com.ebicep.chatplus.features.TranslateMessage
 import com.ebicep.chatplus.features.chattabs.ChatTab
 import com.ebicep.chatplus.features.moderation.ModTools
 import com.ebicep.chatplus.features.moderation.ui.NameMenu
+import com.ebicep.chatplus.features.moderation.ui.Screens
+import com.ebicep.chatplus.mixin.IMixinChatScreen
 import com.ebicep.chatplus.hud.ChatManager
 import com.ebicep.chatplus.translator.LanguageManager
 import com.ebicep.chatplus.translator.SenderPrefix
 import net.minecraft.client.Minecraft
 import net.minecraft.client.Screenshot
 import net.neoforged.neoforge.client.event.RenderFrameEvent
+import net.minecraft.client.gui.components.Button
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
@@ -36,6 +40,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.util.UUID
 
 /**
  * Offline self-test for development. It only runs with -Dchatplus.stafftools.selftest=true, which only the runSelfTest task
@@ -205,10 +210,16 @@ object SelfTest {
 
         step(0) {
             check("tools inactive in singleplayer", !ModTools.active())
-            // Stand in for being on the example server. The connection is still the local singleplayer one.
-            engine.setServer("example.net")
+            // A copied config remembers whichever tab was last open; the test chat goes to the first tab.
+            Config.values.chatWindows.first().tabSettings.selectedTabIndex = 0
+            // Stand in for being on the example server. The connection is still the local singleplayer one. The saved
+            // player list from an earlier run is removed first, so this run starts clean.
+            Files.deleteIfExists(ModTools.dir().resolve("players").resolve("example.net.json"))
+            ModTools.startSession("example.net")
             check("tools active once the server is in the profile", ModTools.active())
             check("example profile loaded without errors", engine.errors().isEmpty(), engine.errors().toString())
+            // Someone seen three days ago, so the player list has an offline player too.
+            ModTools.players().update(mapOf(UUID.randomUUID() to "OldTimer"), System.currentTimeMillis() - 3L * 24 * 3600 * 1000)
         }
         step(5) {
             receive(Component.literal("Member | ").append(named("Alice", "/whisper Alice ")).append(" » hello there"))
@@ -244,12 +255,22 @@ object SelfTest {
             val screen = mc.screen!!
             clickMenuRow(screen, 3)
             check("Strike opens the reason popup", screenName() == "ActionScreen", screenName())
+            val recent = ModTools.recentMessages("RealBob", 3)
+            check("the strike screen shows their last message", recent.size == 1 && recent[0].contains("anyone got a dupe glitch"), recent.toString())
         }
         step(5) {
             "self test only".forEach { mc.screen!!.charTyped(it, 0) }
+            val screen = mc.screen!!
+            button(screen, "Insert location").onPress()
+            button(screen, "Chunk owner").onPress()
+            val me = mc.player!!.blockPosition()
+            val reason = screen.children().filterIsInstance<EditBox>().first().value
+            check("Insert location adds where I am", reason == "self test only at ${me.x} ${me.y} ${me.z} (overworld)", reason)
+            check("typing in the reason box isn't taken for chat shortcuts", ChatManager.isTypingElsewhere())
         }
-        step(20) {
+        step(60) {
             shot("strike-preview")
+            check("the chunk owner check got its reply", engine.pendingCommands() == 0)
         }
         step(3) {
             check("nothing queued while the popup is open", engine.pendingCommands() == 0)
@@ -341,6 +362,88 @@ object SelfTest {
         step(3) {
             mc.setScreen(null)
         }
+
+        // The player list: /mt players opens it on the next tick.
+        step(5) {
+            ModTools.openPlayers()
+        }
+        step(5) {
+            check("/mt players opens the player list", screenName() == "PlayerListScreen", screenName())
+            val me = mc.player!!.gameProfile.name
+            check("the player list has me online", ModTools.players().isOnline(me), ModTools.players().onlineNames().toString())
+            check("the player list keeps players who left", ModTools.players().byName("OldTimer").isPresent && !ModTools.players().isOnline("OldTimer"))
+        }
+        step(10) {
+            shot("player-list")
+        }
+        step(3) {
+            val screen = mc.screen!!
+            val row = Screens.playerRow(screen, "OldTimer")
+            check("an offline player is listed", row != null)
+            if (row != null) {
+                click(screen, row[0], row[1], 0)
+            }
+            check("clicking a player opens the name menu", NameMenu.isOpen() && screenName() == "PlayerListScreen", screenName())
+        }
+        step(10) {
+            shot("player-list-menu")
+        }
+        step(3) {
+            val screen = mc.screen!!
+            screen.keyPressed(256, 0, 0)
+            check("Escape closes only the menu, the list stays", !NameMenu.isOpen() && screenName() == "PlayerListScreen", screenName())
+            "zzz".forEach { screen.charTyped(it, 0) }
+        }
+        step(3) {
+            check("search hides players that don't match", Screens.playerRow(mc.screen!!, "OldTimer") == null)
+            mc.screen!!.onClose()
+            val file = ModTools.dir().resolve("players").resolve("example.net.json")
+            check("the player list is saved", Files.exists(file) && Files.readString(file).contains("OldTimer"))
+            check("only names, UUIDs and times are saved", Files.exists(file) && !Files.readString(file).contains("dupe glitch"))
+        }
+
+        // The missing-slash guard.
+        step(5) {
+            mc.setScreen(ChatScreen(""))
+        }
+        step(5) {
+            typeAndEnter(mc, "weather clear")
+            check("a command typed without its / is held back", mc.screen is ChatScreen && inputText(mc) == "weather clear", screenName())
+            check("held back with a note", tabLines().any { it.guiMessage.content.string.contains("Not sent: this looks like a command") })
+        }
+        step(5) {
+            shot("slash-guard")
+        }
+        step(3) {
+            (mc.screen!! as ChatScreen).let { it.keyPressed(257, 0, 0) }
+        }
+        step(20) {
+            check("Enter again sends it as chat", tabLines().any { it.guiMessage.content.string.endsWith("> weather clear") }, tabLines().takeLast(3).map { it.guiMessage.content.string }.toString())
+            mc.setScreen(ChatScreen(""))
+        }
+        step(5) {
+            typeAndEnter(mc, "guard strike RealBob test")
+            check("a profile guard word is held back", mc.screen is ChatScreen && inputText(mc) == "guard strike RealBob test", screenName())
+            (mc.screen as IMixinChatScreen).input.value = ""
+            typeAndEnter(mc, "help me please")
+        }
+        step(20) {
+            check("an ordinary sentence is sent", tabLines().any { it.guiMessage.content.string.endsWith("> help me please") }, tabLines().takeLast(3).map { it.guiMessage.content.string }.toString())
+            check("nothing queued by the guard", engine.pendingCommands() == 0)
+            mc.setScreen(null)
+        }
+    }
+
+    private fun button(screen: Screen, label: String): Button =
+        screen.children().filterIsInstance<Button>().first { it.message.string == label }
+
+    private fun inputText(mc: Minecraft): String = (mc.screen as? IMixinChatScreen)?.input?.value ?: ""
+
+    /** Types into chat and presses Enter, as a player would. */
+    private fun typeAndEnter(mc: Minecraft, text: String) {
+        val screen = mc.screen as ChatScreen
+        (screen as IMixinChatScreen).input.value = text
+        screen.keyPressed(257, 0, 0)
     }
 
     private fun finish() {

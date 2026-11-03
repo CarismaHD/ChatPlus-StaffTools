@@ -8,6 +8,7 @@ These must never be committed or uploaded. Keep them in a folder outside this re
 
 - Real server profiles and samples files.
 - Your own ChatPlus settings (`chatplus-v*.json`).
+- Your player lists (`config/chatplus/moderation/players/`).
 - Your private terms list (step 2).
 - Logs, screenshots and `run-*` folders from testing.
 

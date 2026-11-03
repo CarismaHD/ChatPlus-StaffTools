@@ -88,7 +88,7 @@ object SpeechToText {
             if (!Config.values.speechToTextEnabled) {
                 return@register
             }
-            recordMic = Config.values.speechToTextMicrophoneKey.isDown() && !ChatManager.isChatFocused()
+            recordMic = Config.values.speechToTextMicrophoneKey.isDown() && !ChatManager.isChatFocused() && !ChatManager.isTypingElsewhere()
         }
     }
 
@@ -232,7 +232,7 @@ class MicrophoneThread : Thread("ChatPlusMicrophoneThread") {
             if (!Config.values.speechToTextEnabled) {
                 return@register EventResult.pass()
             }
-            val quickSend = keyCode == Config.values.speechToTextQuickSendKey.value && !ChatManager.isChatFocused()
+            val quickSend = keyCode == Config.values.speechToTextQuickSendKey.value && !ChatManager.isChatFocused() && !ChatManager.isTypingElsewhere()
             if (canQuickSend && quickSend) {
                 quickSendTimer = -1
                 doWithMessage { message, _ ->

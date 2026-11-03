@@ -89,6 +89,10 @@ object ConfigScreenImpl {
                 "chatPlus.moderation.toggle",
                 Config.values.moderationEnabled
             ) { Config.values.moderationEnabled = it },
+            entryBuilder.booleanToggle(
+                "chatPlus.moderation.slashGuard",
+                Config.values.moderationSlashGuard
+            ) { Config.values.moderationSlashGuard = it },
             entryBuilder.intSlider(
                 "chatPlus.moderation.commandDelay",
                 Config.values.moderationCommandDelayMs,

@@ -198,4 +198,27 @@ class EngineTest {
         assertEquals(1, engine.errors().size(), engine.errors().toString());
         assertTrue(engine.errors().get(0).contains("lookup.start"));
     }
+
+    @Test
+    void aMessageWithLineBreaksIsMatchedLineByLine() throws Exception {
+        connected();
+        List<String> shown = new ArrayList<>();
+        assertTrue(engine.submit("chunk_owner", Map.of("player", "Alice"), r -> shown.addAll((List<String>) r.parsed())).queued());
+        engine.tick();
+        line("Claimed: overworld [3, -7]\n  Owner: TownTeam / 1a2b3c4d\n  Loaded: 0");
+        now += 5_000;
+        engine.tick();
+        assertEquals(List.of("Claimed: overworld [3, -7]", "  Owner: TownTeam / 1a2b3c4d", "  Loaded: 0"), shown);
+        assertEquals("TownTeam", engine.replyGroup("chunk_owner", shown, "team"));
+        assertEquals("1a2b3c4d", engine.replyGroup("chunk_owner", shown, "teamId"));
+        assertNull(engine.replyGroup("chunk_owner", List.of("  Owner: Carol's Party / 1a2b"), "team"), "a party names its player already");
+    }
+
+    @Test
+    void theTeamPlaceholderIsOneWord() throws Exception {
+        connected();
+        assertEquals("/guard team TownTeam#1a2b3c4d", engine.render("team_info", Map.of("team", "TownTeam", "teamId", "1a2b3c4d")).command());
+        assertFalse(engine.render("team_info", Map.of("team", "Town Team", "teamId", "1a2b3c4d")).ok());
+        assertFalse(engine.render("team_info", Map.of("team", "TownTeam")).ok(), "the ID is needed too");
+    }
 }

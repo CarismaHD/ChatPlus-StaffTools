@@ -34,7 +34,7 @@ object HideChat {
         }
         var onCooldown = false
         ClientRawInputEvent.KEY_PRESSED.register { _, keyCode, _, action, modifiers ->
-            if (ChatManager.isChatFocused()) {
+            if (ChatManager.isChatFocused() || ChatManager.isTypingElsewhere()) {
                 return@register EventResult.pass()
             }
             val hideKeyDown = Config.values.hideChatToggleKey.isDown(keyCode, modifiers)

@@ -2,13 +2,14 @@ package com.ebicep.chatplus.features
 
 import com.ebicep.chatplus.config.Config
 import com.ebicep.chatplus.events.EventBus
+import com.ebicep.chatplus.hud.ChatManager
 import com.ebicep.chatplus.hud.ChatRenderPreLinesEvent
 import com.ebicep.chatplus.util.KeyUtil.isDown
 
 object PeekChat {
 
     val peeking: Boolean
-        get() = Config.values.keyPeekChat.isDown()
+        get() = Config.values.keyPeekChat.isDown() && !ChatManager.isTypingElsewhere()
 
     init {
         var wasPeeking = false

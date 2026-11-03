@@ -13,7 +13,7 @@ public final class TemplateRenderer {
     /** May render empty. Everything else is required. */
     private static final Set<String> OPTIONAL = Set.of("silent");
     /** A space here would shift later arguments and could change who or what the command applies to. */
-    private static final Set<String> SINGLE_TOKEN = Set.of("player", "duration", "window");
+    private static final Set<String> SINGLE_TOKEN = Set.of("player", "duration", "window", "team", "teamId");
     private static final Set<String> DIGITS_ONLY = Set.of("warningId", "noteId", "id");
 
     /** Either a command ready to send, or the reasons it was refused. */

@@ -14,7 +14,11 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 - Name menu: right-click a player's name in chat for Lookup, Message, Note, Warn, Temp-ban, Unstuck, extra profile commands, and Copy name.
 - Lookup screen: the player's warnings, notes and active bans, with Remove and Unban buttons.
 - Confirm screen: every command that changes something shows the exact command before sending. Send is disabled for the first half second.
-- `/mt` and `/modtools` commands: lookup, reload, and status.
+- Player list: everyone you've seen online on the server, searchable, with the name menu's actions for each player, online or not. Open it with `/mt players` or the **P** button on the chat bar.
+- Before a warn or temp-ban: the player's last messages from chat, a warning when someone with a look-alike name is online, and an "(offline)" tag.
+- Warn, Temp-ban and Note show where you are (coordinates, dimension, biome), the time, and the player's record from this session's lookup. Buttons insert your location or the time into the reason, and **Chunk owner** asks the server who owns the chunk you're in.
+- Missing-slash guard: a chat message that looks like a command typed without its `/` is held back instead of posted. Press Enter again to send it as chat anyway.
+- `/mt` and `/modtools` commands: lookup, player list, reload, and status.
 - A Moderation section in ChatPlus settings: an on/off switch, the delay between commands, and how long to wait for a lookup reply.
 - Server profiles: all server-specific behaviour comes from `config/chatplus/moderation/profile.json`. The bundled profile is empty, so without one the mod behaves exactly like ChatPlus.
 
@@ -30,6 +34,7 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 - Translate: "Translate To: Auto Detect", the default, means your Minecraft language instead of sending "auto" to Google.
 - Translate, speak mode (Ctrl+T): commands are sent as typed, a command prefix such as `/msg Steve` keeps its space, and a message that can't be translated is kept instead of lost.
 - Translate: translated text is added to chat on the game thread, and auto-translate is skipped when no translate regex is set.
+- Chat shortcuts (peek chat, speech-to-text record and quick send, hide chat, speak mode) no longer fire while you type in a text box on another screen, such as a search box.
 - Staff tools: a lookup reply that shows the player under another name still fills the lookup screen, and lookups are forgotten when you change server.
 - Settings screen: uses upstream's later fix for opening the settings from the NeoForge 21.1 mod list (from ChatPlus commit `0740a1d`).
 - Three later ChatPlus bug fixes, taken unchanged from ChatPlus 2.8.0:
@@ -41,7 +46,7 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 **Build**
 - NeoForge only. The Fabric build is turned off.
 - Built against Minecraft 1.21.1, NeoForge 21.1.265 and Architectury 13.0.11 (ChatPlus 2.7.0 used Minecraft 1.21, NeoForge 21.0 and Architectury 13.0.1).
-- Renamed to ChatPlus Staff Tools, version `2.7.0-st.2`, jar `chatplus-stafftools-neoforge-<version>.jar`. The mod ID stays `chatplus`, and the settings file stays `chatplus-v2.7.0.json`.
+- Renamed to ChatPlus Staff Tools, version `2.7.0-st.3`, jar `chatplus-stafftools-neoforge-<version>.jar`. The mod ID stays `chatplus`, and the settings file stays `chatplus-v2.7.0.json`.
 - Issues link to this repository instead of upstream.
 - New: unit tests for the staff tools and translate parsing, an offline self-test client (`runSelfTest`), and a release check for private terms (`tools/check-private-terms.py`).
 
@@ -52,8 +57,12 @@ This is the full list of what differs from the original ChatPlus 2.7.0 (upstream
 | Name menu | Right-click a player's name in chat. A small menu, drawn like a normal tooltip, lists Lookup, Message, Note, Warn, Temp-ban, Unstuck, any extra commands the profile adds, and Copy name. |
 | Lookup screen | Shows the player's warnings, notes and active bans from the server's own lookup command. Each warning and note has a Remove button, and active bans have Unban. |
 | Confirm screen | Anything that changes something opens a screen showing the exact command that will be sent, with Cancel and Send. Send can't be clicked for the first half second, so a double-click never sends by accident. |
-| `/mt` | `/mt <player>` opens a lookup, `/mt reload` reloads the profile, and `/mt` alone says whether the tools are active. `/modtools` works too. |
-| Settings | ChatPlus settings has a Moderation section: an on/off switch, the delay between commands, and how long to wait for a lookup reply. |
+| Player list | Everyone you've seen online on this server, with a search box. Online players are listed first, then the most recently seen. Click a name for the same menu as in chat. Open it with `/mt players` or the **P** button on the chat bar. |
+| Before punishing | Warn and Temp-ban show the player's last 3 messages from chat, warn when someone with a look-alike name is online (such as `Steve_` for `Steve`), and mark the player "(offline)" when they aren't online. |
+| Location and record | Warn, Temp-ban and Note show your coordinates, dimension and biome, the date and time, and the player's warnings, notes and active bans from this session's lookup. **Insert location** adds "at 120 64 -300 (overworld)" to the reason, and **Insert time** adds the time. **Chunk owner** sends the profile's `chunk_owner` command (only when clicked) and shows the reply on the screen. |
+| Missing-slash guard | A message like `staff ban Steve 1d`, a server command typed without its `/`, is held back with a note instead of being posted in chat. Your text stays in the box. Press Enter again within 10 seconds to send it as chat anyway. It checks the commands the server sends you, so ordinary sentences such as "help me" go through. |
+| `/mt` | `/mt <player>` opens a lookup, `/mt players` opens the player list, `/mt reload` reloads the profile, and `/mt` alone says whether the tools are active. `/modtools` works too. |
+| Settings | ChatPlus settings has a Moderation section: an on/off switch, the missing-slash guard, the delay between commands, and how long to wait for a lookup reply. |
 | Translate fixes | Ctrl+click translates only the message and keeps the sender's name in front, says why when it can't translate, and doesn't also open links. Short pauses after Google errors, no double spaces, and "Auto Detect" means your game language. Speak mode leaves commands alone. |
 
 Everything else is ChatPlus 2.7.0 as released.
@@ -65,6 +74,7 @@ Everything else is ChatPlus 2.7.0 as released.
 - Commands go one at a time with a delay between them. Leaving or changing server clears anything still waiting.
 - The player in the menu always comes from the server's own click data on their name (for example a `/msg <name>` suggestion), never from a display name, nickname or rank.
 - Right-clicks with Shift, Ctrl or Alt held, and right-clicks on anything that isn't a name, go to ChatPlus as usual.
+- The player list is the only thing saved about players: username, UUID, and when you first and last saw them online. It's kept in `config/chatplus/moderation/players/`, on your PC only, and only for servers in the profile. No messages are saved.
 
 ## Install
 
@@ -86,6 +96,8 @@ To go back to plain ChatPlus, swap the jars again. The settings file is shared, 
    - **Copy name** copies the username to the clipboard.
 3. On the lookup screen, **Remove** and **Unban** also go through the confirm screen.
 
+To act on someone who isn't in chat, open the player list with `/mt players` or the **P** button, search for them, and click their name.
+
 If something doesn't work, try `/mt` first. It says whether a profile is loaded, whether this server is listed, and what is wrong with the profile, if anything.
 
 ## Writing a profile
@@ -106,6 +118,7 @@ Patterns are Java regular expressions, matched against a whole line of chat with
 | `lookup.section` | Section headers, with a `header` group. |
 | `lookup.warningsCount`, `notesCount`, `bansCount` | The `kind` values that mean warnings, notes and active bans. |
 | `lookup.warningsSection`, `notesSection` | The `header` values that start the warnings and notes lists. |
+| `slashGuard` | First words of commands that must never reach public chat if typed without their `/`, such as `["staff"]`. A message starting with one is always held back. Server commands with a sub-command are held back even without this. |
 | `silentFlag` | What `{silent}` becomes when Silent is ticked, such as a command's quiet flag. Leave it empty to hide the Silent checkbox. |
 | `commands` | The commands, described below. |
 | `tabs` | Read but not used in this version. Set up tabs in ChatPlus itself. |
@@ -118,14 +131,17 @@ Patterns are Java regular expressions, matched against a whole line of chat with
 | `label` | The text shown in the menu. |
 | `template` | The command, with placeholders in braces. |
 | `confirm` | `true` to always show the confirm screen. Commands with a reason, message or duration show it anyway. |
-| `parser` | `"lookup"` on the lookup command, so its reply is read into the lookup screen. |
+| `parser` | `"lookup"` on the lookup command, so its reply is read into the lookup screen. `"lines"` shows the first lines of the reply as they are, for commands such as `chunk_owner`. |
 | `menu` | `true` to add an extra command to the name menu. |
+| `reply` | With `"parser": "lines"`: patterns for the lines that make up the reply, such as `[".*Location: .+", "\\s*Owner: .+"]`. Only those lines are shown, so other server messages arriving at the same time are left out. |
 
 | ID | Used for |
 |---|---|
 | `lookup` | Lookup in the menu, `/mt <player>`, and Refresh |
 | `msg`, `note_add`, `warn_add`, `tempban`, `unstuck` | The name menu, in that order |
 | `warn_remove`, `note_remove`, `unban` | The lookup screen's buttons |
+| `chunk_owner` | The Chunk owner button on Warn, Temp-ban and Note. Use `"parser": "lines"` so the reply is shown. A `(?<team>...)` group in one of its `reply` patterns names the owning team. |
+| `team_info` | When the chunk owner reply names a team, the button becomes **Team members** and sends this, with the team in `{team}`. |
 
 | Placeholder | Filled with |
 |---|---|
@@ -134,6 +150,7 @@ Patterns are Java regular expressions, matched against a whole line of chat with
 | `{duration}` | One word, such as `1d` |
 | `{silent}` | `silentFlag` when Silent is ticked, otherwise nothing |
 | `{warningId}`, `{noteId}` | The number of the entry being removed |
+| `{team}`, `{teamId}` | The team named in the chunk owner reply, from the `team` and `teamId` groups of its `reply` patterns, one word each |
 
 Values are cleaned before sending: formatting codes and control characters are removed, and `{player}`, `{duration}` and the IDs must be a single word.
 

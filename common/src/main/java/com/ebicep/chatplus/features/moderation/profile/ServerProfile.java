@@ -22,6 +22,11 @@ public final class ServerProfile {
     public List<CommandTemplate> commands = new ArrayList<>();
     /** Put in place of {@code {silent}} when Silent is ticked, such as a command's quiet flag. Empty hides Silent. */
     public String silentFlag = "";
+    /**
+     * First words of commands that must never go to public chat if typed without their slash, such as a staff-chat
+     * command. A chat message starting with one is held back.
+     */
+    public List<String> slashGuard = new ArrayList<>();
     /** Read but not used in this version. Set tabs up in ChatPlus itself. */
     public List<Tab> tabs = new ArrayList<>();
 

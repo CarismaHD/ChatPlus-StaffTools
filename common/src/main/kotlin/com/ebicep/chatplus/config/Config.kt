@@ -277,6 +277,7 @@ data class ConfigVariables(
     var moderationEnabled: Boolean = true,
     var moderationCommandDelayMs: Int = 1500,
     var moderationLookupWaitMs: Int = 1500,
+    var moderationSlashGuard: Boolean = true,
 ) {
 
     var chatWindows: MutableList<ChatWindow> = mutableListOf()

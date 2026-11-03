@@ -8,8 +8,10 @@ import com.ebicep.chatplus.features.moderation.command.Response;
 import com.ebicep.chatplus.features.moderation.command.TemplateRenderer;
 import com.ebicep.chatplus.features.moderation.config.ConfigFiles;
 import com.ebicep.chatplus.features.moderation.parse.CapturedLine;
+import com.ebicep.chatplus.features.moderation.parse.LinesParser;
 import com.ebicep.chatplus.features.moderation.parse.LookupParser;
 import com.ebicep.chatplus.features.moderation.parse.LookupResult;
+import com.ebicep.chatplus.features.moderation.parse.ResponseParser;
 import com.ebicep.chatplus.features.moderation.profile.CompiledProfile;
 import com.ebicep.chatplus.features.moderation.profile.Rules;
 import java.nio.file.Path;
@@ -111,9 +113,35 @@ public final class Engine {
 
     /** A received line. Only the command in flight may claim it; nothing is ever sent from here. */
     public void onLine(CapturedLine line) {
-        if (isActive()) {
-            queue.offer(line);
+        if (!isActive()) {
+            return;
         }
+        // A server can send several lines as one message, with line breaks in it. Each line is matched on its own.
+        for (String part : line.text().split("\\R")) {
+            if (!part.isBlank()) {
+                queue.offer(new CapturedLine(line.time(), part));
+            }
+        }
+    }
+
+    /**
+     * A named group from a command's reply patterns, such as the team in a chunk owner reply, or null. The lines are
+     * the reply as the "lines" parser returned it.
+     */
+    public String replyGroup(String commandId, List<String> lines, String group) {
+        CommandTemplate t = profile.command(commandId);
+        if (t == null || t.reply() == null) {
+            return null;
+        }
+        Rules rules = new Rules("reply", t.reply(), new ArrayList<>());
+        for (String line : lines) {
+            Matcher m = rules.match(line);
+            String value = m != null ? Rules.group(m, group) : null;
+            if (value != null && !value.isBlank()) {
+                return value.strip();
+            }
+        }
+        return null;
     }
 
     /** The username in the click value on a player's name, using the profile, or null. */
@@ -172,8 +200,12 @@ public final class Engine {
             return new Submission(false, r.problems());
         }
         CommandTemplate t = profile.command(templateId);
-        boolean isLookup = "lookup".equals(t.parser());
-        CommandRequest request = new CommandRequest(templateId, r.command(), isLookup ? new LookupParser(profile) : null, response -> {
+        ResponseParser parser = switch (t.parser() == null ? "" : t.parser()) {
+            case "lookup" -> new LookupParser(profile);
+            case "lines" -> new LinesParser(profile, t.reply());
+            default -> null;
+        };
+        CommandRequest request = new CommandRequest(templateId, r.command(), parser, response -> {
             if (response.parsed() instanceof LookupResult l) {
                 // Kept under the name that was asked for, which is what the lookup screen asks for again. Before, only
                 // the name in the reply was used, so a reply showing a nickname left the screen empty. The reply's own

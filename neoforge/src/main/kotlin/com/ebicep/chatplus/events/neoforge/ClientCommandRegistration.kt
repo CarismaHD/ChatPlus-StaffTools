@@ -30,13 +30,20 @@ object ClientCommandRegistration {
         event.dispatcher.register(createModToolsCommand("mt"))
     }
 
-    /** /mt <player> looks a player up, /mt reload reloads the server profile, /mt alone shows the status. */
+    /** /mt <player> looks a player up, /mt players opens the player list, /mt reload reloads the profile, /mt alone shows the status. */
     private fun createModToolsCommand(commandName: String): LiteralArgumentBuilder<CommandSourceStack> =
         Commands.literal(commandName)
             .then(
                 Commands.literal("reload")
                     .executes {
                         ChatPlus.sendMessage(Component.literal(ModTools.reload()))
+                        Command.SINGLE_SUCCESS
+                    }
+            )
+            .then(
+                Commands.literal("players")
+                    .executes {
+                        ModTools.openPlayers()
                         Command.SINGLE_SUCCESS
                     }
             )

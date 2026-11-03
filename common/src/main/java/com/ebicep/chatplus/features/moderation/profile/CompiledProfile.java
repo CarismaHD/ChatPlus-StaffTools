@@ -15,6 +15,8 @@ public final class CompiledProfile {
     public final List<CommandTemplate> commands;
     public final List<ServerProfile.Tab> tabs;
     public final String silentFlag;
+    /** Lowercase, without a leading slash. */
+    public final List<String> slashGuard;
     public final Rules stripPrefixes;
     public final Rules nameFromClick;
     public final Rules chatLines;
@@ -29,6 +31,12 @@ public final class CompiledProfile {
         ServerProfile.Lookup lk = p.lookup != null ? p.lookup : new ServerProfile.Lookup();
         servers = p.servers != null ? p.servers.stream().filter(s -> s != null && !s.isBlank()).toList() : List.of();
         commands = p.commands != null ? p.commands.stream().filter(c -> c != null && c.id() != null && c.template() != null).toList() : List.of();
+        for (CommandTemplate c : commands) {
+            if (c.reply() != null) {
+                // Only to report bad patterns through /mt; the parser compiles its own copy.
+                new Rules("command \"" + c.id() + "\" reply", c.reply(), errors);
+            }
+        }
         List<ServerProfile.Tab> validTabs = new ArrayList<>();
         if (p.tabs != null) {
             for (ServerProfile.Tab t : p.tabs) {
@@ -45,6 +53,18 @@ public final class CompiledProfile {
         }
         tabs = List.copyOf(validTabs);
         silentFlag = p.silentFlag == null ? "" : p.silentFlag.trim();
+        List<String> guard = new ArrayList<>();
+        if (p.slashGuard != null) {
+            for (String w : p.slashGuard) {
+                String word = w == null ? "" : w.trim().replaceFirst("^/", "").toLowerCase(Locale.ROOT);
+                if (!word.isEmpty() && !word.contains(" ")) {
+                    guard.add(word);
+                } else if (w != null && !w.isBlank()) {
+                    errors.add("slashGuard \"" + w + "\": must be a single word");
+                }
+            }
+        }
+        slashGuard = List.copyOf(guard);
         stripPrefixes = new Rules("stripPrefixes", p.stripPrefixes, errors);
         nameFromClick = new Rules("chat.nameFromClick", chat.nameFromClick, errors);
         chatLines = new Rules("chat.chatLines", chat.chatLines, errors);
